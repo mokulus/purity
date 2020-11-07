@@ -1,0 +1,155 @@
+#!/bin/python3
+import itertools
+import functools
+from pathlib import Path
+
+
+class FilesystemNode:
+    def __init__(self, parent, path):
+        self.parent = parent
+        self.path = path.expanduser().absolute()
+        self.children = None
+        self.removed = False
+        self.folded = False
+
+        if self.path.is_dir():
+            self.children = set()
+            for child_path in self.path.iterdir():
+                self.children.add(FilesystemNode(self, child_path))
+
+
+class Purity:
+    def __init__(self, path=Path.home()):
+        self.root = FilesystemNode(None, path)
+
+    def __filter(self, predicate, root=None):
+        if root is None:
+            root = self.root
+        if not predicate(root):
+            root.removed = True
+        self.__for_children(functools.partial(self.__filter, predicate), root)
+
+    def __for_children(self, function, node):
+        if node.children:
+            for child in node.children:
+                function(child)
+
+    def ignore(self, *paths):
+        for path in paths:
+            path = Path(str(path)).expanduser().absolute()
+            self.__filter(
+                lambda child: not str(child.path).startswith(str(path))
+            )
+
+    def no_home_public(self):
+        def remove_if_not_hidden(node):
+            if not node.path.name.startswith("."):
+                node.removed = True
+
+        self.__for_children(remove_if_not_hidden, self.root)
+
+    def no_git(self, root=None):
+        if root is None:
+            root = self.root
+        if root.path.is_dir():
+            if root.path.parts[-1] == ".git":
+                root.removed = True
+            else:
+                self.__for_children(self.no_git, root)
+
+    def no_home_symlinks(self):
+        def remove_if_symlink(node):
+            if node.path.is_symlink():
+                node.removed = True
+
+        self.__for_children(remove_if_symlink, self.root)
+
+    def no_dotfiles_symlinks(self, root=None):
+        if root is None:
+            root = self.root
+        if root.path.is_symlink() and "dotfiles" in root.path.resolve().parts:
+            root.removed = True
+        else:
+            self.__for_children(self.no_dotfiles_symlinks, root)
+
+    def print(self, root=None, depth=0, removal=True):
+        if root is None:
+            root = self.root
+        if not root.removed:
+            depth_str = " " * 4 * depth if not removal else ""
+            if not removal or root.folded:
+                print(
+                    "{}{}{}".format(
+                        depth_str, root.path, "/" if root.path.is_dir() else ""
+                    )
+                )
+            if not root.folded and root.children:
+                for child in sorted(
+                    root.children, key=lambda node: str(node.path)
+                ):
+                    self.print(child, depth + 1, removal)
+
+    def fold(self, root=None):
+        if root is None:
+            root = self.root
+
+        if root.children:
+            self.__for_children(self.fold, root)
+            root.folded = all(child.folded for child in root.children)
+        else:
+            root.folded = not root.removed
+
+    def remove_with_all_removed(self, root=None):
+        if root is None:
+            root = self.root
+        if not root.removed and root.children:
+            self.__for_children(self.remove_with_all_removed, root)
+            root.removed = all(child.removed for child in root.children)
+
+
+if __name__ == "__main__":
+    p = Purity()
+    p.no_git()
+    p.no_home_public()
+    p.no_home_symlinks()
+    p.no_dotfiles_symlinks()
+    p.ignore(
+        "~/.ssh",
+        "~/.gnupg",
+        "~/.local/bin",
+        "~/.local/lib",
+    )
+    for e in itertools.product(
+        ["~/.config/"],
+        [
+            "chromium",
+            "syncthing",
+            "calibre",
+            "weechat",
+            "qBittorrent",
+            "newsboat",
+            "coc",
+            "systemd",
+            "borg",
+        ],
+    ):
+        p.ignore("".join(e))
+
+    for e in itertools.product(
+        ["~/.local/share/"],
+        [
+            "mail",
+            "Anki",
+            "Anki2",
+            "wallpaper",
+            "parallel",
+            "newsboat",
+            "zathura",
+            "password-store",
+            "data/qBittorrent",
+        ],
+    ):
+        p.ignore("".join(e))
+    p.remove_with_all_removed()
+    p.fold()
+    p.print()
