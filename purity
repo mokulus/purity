@@ -8,111 +8,93 @@ class FilesystemNode:
     def __init__(self, parent, path):
         self.parent = parent
         self.path = path.expanduser().absolute()
-        self.children = None
-        self.removed = False
+        self.children = set()
+        self.ignored = False
         self.folded = False
 
         if self.path.is_dir():
-            self.children = set()
             for child_path in self.path.iterdir():
                 self.children.add(FilesystemNode(self, child_path))
+        self.empty = len(self.children) == 0
 
 
 class Purity:
     def __init__(self, path=Path.home()):
         self.root = FilesystemNode(None, path)
 
-    def __filter(self, predicate, root=None):
-        if root is None:
-            root = self.root
-        if not predicate(root):
-            root.removed = True
-        self.__for_children(functools.partial(self.__filter, predicate), root)
-
-    def __for_children(self, function, node):
-        if node.children:
-            for child in node.children:
-                function(child)
-
     def ignore(self, *paths):
         for path in paths:
-            path = Path(str(path)).expanduser().absolute()
-            self.__filter(
-                lambda child: not str(child.path).startswith(str(path))
-            )
+            self.ignore_path(Path(str(path)).expanduser().absolute())
 
-    def no_home_public(self):
-        def remove_if_not_hidden(node):
-            if not node.path.name.startswith("."):
-                node.removed = True
+    def ignore_path(self, path, node=None):
+        node = node or self.root
+        if str(node.path).startswith(str(path)):
+            node.ignored = True
+        for child in node.children:
+            self.ignore_path(path, child)
 
-        self.__for_children(remove_if_not_hidden, self.root)
+    def ignore_public_in_home(self):
+        for child in self.root.children:
+            if not child.path.name.startswith("."):
+                child.ignored = True
 
-    def no_git(self, root=None):
-        if root is None:
-            root = self.root
-        if root.path.is_dir():
-            if root.path.parts[-1] == ".git":
-                root.removed = True
+    def ignore_git_repos(self, node=None):
+        node = node or self.root
+        if node.path.is_dir():
+            if node.path.parts[-1] == ".git":
+                node.parent.ignored = True
             else:
-                self.__for_children(self.no_git, root)
+                for child in node.children:
+                    self.ignore_git_repos(child)
 
-    def no_home_symlinks(self):
-        def remove_if_symlink(node):
-            if node.path.is_symlink():
-                node.removed = True
+    def ignore_symlinks_in_home(self):
+        for child in self.root.children:
+            if child.path.is_symlink():
+                child.ignored = True
 
-        self.__for_children(remove_if_symlink, self.root)
-
-    def no_dotfiles_symlinks(self, root=None):
-        if root is None:
-            root = self.root
-        if root.path.is_symlink() and "dotfiles" in root.path.resolve().parts:
-            root.removed = True
+    def ignore_dotfiles_symlinks(self, node=None):
+        node = node or self.root
+        if node.path.is_symlink() and "dotfiles" in node.path.resolve().parts:
+            node.ignored = True
         else:
-            self.__for_children(self.no_dotfiles_symlinks, root)
+            for child in node.children:
+                self.ignore_dotfiles_symlinks(child)
 
-    def print(self, root=None, depth=0, removal=True):
-        if root is None:
-            root = self.root
-        if not root.removed:
-            depth_str = " " * 4 * depth if not removal else ""
-            if not removal or root.folded:
-                print(
-                    "{}{}{}".format(
-                        depth_str, root.path, "/" if root.path.is_dir() else ""
-                    )
-                )
-            if not root.folded and root.children:
-                for child in sorted(
-                    root.children, key=lambda node: str(node.path)
-                ):
-                    self.print(child, depth + 1, removal)
-
-    def fold(self, root=None):
-        if root is None:
-            root = self.root
-
-        if root.children:
-            self.__for_children(self.fold, root)
-            root.folded = all(child.folded for child in root.children)
+    def print(self, node=None):
+        node = node or self.root
+        if node.ignored:
+            return
+        if node.folded:
+            print(str(node.path) + "/" if node.path.is_dir() else "")
         else:
-            root.folded = not root.removed
+            for child in node.children:
+                self.print(child)
 
-    def remove_with_all_removed(self, root=None):
-        if root is None:
-            root = self.root
-        if not root.removed and root.children:
-            self.__for_children(self.remove_with_all_removed, root)
-            root.removed = all(child.removed for child in root.children)
+    def propagate_folded(self, node=None):
+        node = node or self.root
+        if node.empty:
+            node.folded = not node.ignored
+        else:
+            for child in node.children:
+                self.propagate_folded(child)
+            node.folded = all(child.folded for child in node.children)
+
+    def propagate_ignored(self, node=None):
+        node = node or self.root
+        if node.ignored: # already ignored, don't unignore
+            return
+        if not node.empty:
+            for child in node.children:
+                self.propagate_ignored(child)
+            node.ignored = all(child.ignored for child in node.children)
 
 
 if __name__ == "__main__":
     p = Purity()
-    p.no_git()
-    p.no_home_public()
-    p.no_home_symlinks()
-    p.no_dotfiles_symlinks()
+    p.ignore_git_repos()
+    p.ignore_public_in_home()
+    p.ignore_symlinks_in_home()
+    p.ignore_dotfiles_symlinks()
     p.ignore(
         "~/.ssh",
         "~/.gnupg",
@@ -150,6 +132,6 @@ if __name__ == "__main__":
         ],
     ):
         p.ignore("".join(e))
-    p.remove_with_all_removed()
-    p.fold()
+    p.propagate_ignored()
+    p.propagate_folded()
     p.print()
