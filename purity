@@ -26,12 +26,16 @@ class Purity:
         for path in paths:
             self.ignore_path(Path(str(path)).expanduser().absolute())
 
-    def ignore_path(self, path, node=None):
-        node = node or self.root
-        if str(node.path).startswith(str(path)):
-            node.ignored = True
-        for child in node.children:
-            self.ignore_path(path, child)
+    def ignore_path(self, path):
+        node = self.root
+        for _ in range(len(path.parts) - 3):  # root, home, user are already common
+            for child in node.children:
+                if all(
+                    pair[0] == pair[1] for pair in zip(child.path.parts, path.parts)
+                ):
+                    node = child
+                    break
+        node.ignored = True
 
     def ignore_public_in_home(self):
         for child in self.root.children:
@@ -65,9 +69,10 @@ class Purity:
         if node.ignored:
             return
         if node.folded:
-            print(str(node.path) + "/" if node.path.is_dir() else "")
+            print(node.path, end="")
+            print("/" if node.path.is_dir() else "")
         else:
-            for child in node.children:
+            for child in sorted(node.children, key=lambda node: node.path):
                 self.print(child)
 
     def propagate_folded(self, node=None):
@@ -81,12 +86,10 @@ class Purity:
 
     def propagate_ignored(self, node=None):
         node = node or self.root
-        if node.ignored: # already ignored, don't unignore
-            return
-        if not node.empty:
-            for child in node.children:
-                self.propagate_ignored(child)
-            node.ignored = all(child.ignored for child in node.children)
+        for child in node.children:
+            if node.ignored:
+                child.ignored = True
+            self.propagate_ignored(child)
 
 
 if __name__ == "__main__":
@@ -95,43 +98,13 @@ if __name__ == "__main__":
     p.ignore_public_in_home()
     p.ignore_symlinks_in_home()
     p.ignore_dotfiles_symlinks()
-    p.ignore(
-        "~/.ssh",
-        "~/.gnupg",
-        "~/.local/bin",
-        "~/.local/lib",
-    )
-    for e in itertools.product(
-        ["~/.config/"],
-        [
-            "chromium",
-            "syncthing",
-            "calibre",
-            "weechat",
-            "qBittorrent",
-            "newsboat",
-            "coc",
-            "systemd",
-            "borg",
-        ],
-    ):
-        p.ignore("".join(e))
 
-    for e in itertools.product(
-        ["~/.local/share/"],
-        [
-            "mail",
-            "Anki",
-            "Anki2",
-            "wallpaper",
-            "parallel",
-            "newsboat",
-            "zathura",
-            "password-store",
-            "data/qBittorrent",
-        ],
-    ):
-        p.ignore("".join(e))
+    with open("ignore.txt", "r") as file:
+        for line in file:
+            line = line.partition("#")[0].strip()
+            if line != "":
+                p.ignore(line)
+
     p.propagate_ignored()
     p.propagate_folded()
     p.print()
