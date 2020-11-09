@@ -1,6 +1,8 @@
 #!/bin/python3
 import itertools
 import functools
+import os
+import sys
 from pathlib import Path
 
 
@@ -93,6 +95,8 @@ class Purity:
 
 
 if __name__ == "__main__":
+    os.chdir(os.path.dirname(sys.argv[0]))
+
     p = Purity()
     p.ignore_git_repos()
     p.ignore_public_in_home()
