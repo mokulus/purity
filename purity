@@ -30,11 +30,10 @@ class Purity:
 
     def ignore_path(self, path):
         node = self.root
-        for _ in range(len(path.parts) - 3):  # root, home, user are already common
+        for _ in path.parts[3:]:  # root, home, user are already common
             for child in node.children:
-                if all(
-                    pair[0] == pair[1] for pair in zip(child.path.parts, path.parts)
-                ):
+                length = len(child.path.parts)
+                if child.path.parts == path.parts[:length]:
                     node = child
                     break
         node.ignored = True
