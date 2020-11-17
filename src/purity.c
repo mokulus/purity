@@ -22,9 +22,9 @@ int main(int argc, const char** argv) {
 	char *line = NULL;
 	while(getline(&line, &size, ignore_file) != -1) {
 		char *ptr = line;
-		while(isspace(*ptr)) ptr++; // skip whitespace
+		while(*ptr && isspace(*ptr)) ptr++; // skip whitespace
 		char *start = ptr;
-		while(!(*ptr == '#' || isspace(*ptr))) ptr++; //skip till comment or whitespace
+		while(*ptr && !(*ptr == '#' || isspace(*ptr))) ptr++; //skip till comment or whitespace
 		*ptr = '\0';
 		if (*start) // ensure path is not empty (it's not just a comment line
 			fs_node_ignore_path(root, start);
