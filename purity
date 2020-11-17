@@ -1,6 +1,4 @@
 #!/bin/python3
-import itertools
-import functools
 import os
 import sys
 from pathlib import Path
