@@ -19,7 +19,7 @@ int main(int argc, const char** argv) {
 	free(path);
 	FILE *ignore_file = fopen("ignore.txt", "r");
 	size_t size = 0;
-	char *line = 0;
+	char *line = NULL;
 	while(getline(&line, &size, ignore_file) != -1) {
 		char *ptr = line;
 		while(isspace(*ptr)) ptr++; // skip whitespace
@@ -29,6 +29,7 @@ int main(int argc, const char** argv) {
 		if (*start) // ensure path is not empty (it's not just a comment line
 			fs_node_ignore_path(root, start);
 	}
+	free(line);
 	fclose(ignore_file);
 
 	fs_node_propagate_ignored(root);
