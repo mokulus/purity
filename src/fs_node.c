@@ -195,8 +195,8 @@ fs_node_propagate_ignored(fs_node *node) {
 
 static int
 fs_node_cmp(const void *p1, const void *p2) {
-	const fs_node *fsn1 = *(const fs_node**)p1;
-	const fs_node *fsn2 = *(const fs_node**)p2;
+	const fs_node *const fsn1 = *(const fs_node *const *)p1;
+	const fs_node *const fsn2 = *(const fs_node *const *)p2;
 	return strcmp(fsn1->path, fsn2->path);
 }
 
