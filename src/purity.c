@@ -5,8 +5,16 @@
 #include <libgen.h>
 #include "fs_node.h"
 
-int main(int argc, const char** argv) {
-	(void)argc;
+
+void usage(const char** argv);
+
+
+int
+main(int argc, const char** argv) {
+	if (argc != 2) {
+		usage(argv);
+		return 1;
+	}
 	fs_node *root = fs_node_init(NULL, "~");
 	fs_node_ignore_git_repos(root);
 	fs_node_ignore_public_in_home(root);
@@ -17,7 +25,12 @@ int main(int argc, const char** argv) {
 	char *dir_name = dirname(path);
 	chdir(dir_name);
 	free(path);
-	FILE *ignore_file = fopen("ignore.txt", "r");
+	FILE *ignore_file = fopen(argv[1], "r");
+	if (!ignore_file) {
+		perror("fopen");
+		goto cleanup;
+
+	}
 	size_t size = 0;
 	char *line = NULL;
 	while(getline(&line, &size, ignore_file) != -1) {
@@ -35,6 +48,12 @@ int main(int argc, const char** argv) {
 	fs_node_propagate_ignored(root);
 	fs_node_propagate_folded(root);
 	fs_node_print(root);
-
+cleanup:
 	fs_node_free(root);
+}
+
+
+void
+usage(const char** argv) {
+	printf("%s [ignore.txt]\n", argv[0]);
 }
