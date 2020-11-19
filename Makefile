@@ -1,4 +1,5 @@
-FLAGS=-O2 -D_DEFAULT_SOURCE -lbsd -g -Wall -Wextra -pedantic -std=c99
+FLAGS=-O2 -D_DEFAULT_SOURCE -g -Wall -Wextra -pedantic -std=c99
+LDFLAGS=-lbsd
 
 SRC = $(wildcard src/*.c)
 OBJ = $(SRC:src/%.c=obj/%.o)
@@ -6,7 +7,7 @@ OBJ = $(SRC:src/%.c=obj/%.o)
 all: purity ignore.txt
 
 purity: $(OBJ)
-	$(CC) $(CFLAGS) $(FLAGS) $^ -o purity
+	$(CC) $(LDFLAGS) $(CFLAGS) $(FLAGS) $^ -o purity
 
 obj/%.o: src/%.c|obj
 	$(CC) $(CFLAGS) $(FLAGS) -c $< -o $@
