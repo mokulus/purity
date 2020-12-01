@@ -204,7 +204,6 @@ void fs_node_print(fs_node* node)
 		}
 		printf("\n");
 	} else {
-		// TODO print in sorted order
 		qsort(node->children, node->n_children, sizeof(*node->children),
 		      fs_node_cmp);
 		for (size_t i = 0; i < node->n_children; ++i) {
