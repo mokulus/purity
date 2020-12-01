@@ -5,36 +5,36 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-void usage(const char **argv);
+void usage(const char** argv);
 
-int main(int argc, const char **argv)
+int main(int argc, const char** argv)
 {
 	if (argc != 2) {
 		usage(argv);
 		return 1;
 	}
-	fs_node *root = fs_node_init(NULL, "~");
+	fs_node* root = fs_node_init(NULL, "~");
 	fs_node_ignore_git_repos(root);
 	fs_node_ignore_public_in_home(root);
 	fs_node_ignore_symlinks_in_home(root);
 	fs_node_ignore_dotfiles_symlinks(root);
 
-	char *path = realpath(argv[0], NULL);
-	char *dir_name = dirname(path);
+	char* path = realpath(argv[0], NULL);
+	char* dir_name = dirname(path);
 	chdir(dir_name);
 	free(path);
-	FILE *ignore_file = fopen(argv[1], "r");
+	FILE* ignore_file = fopen(argv[1], "r");
 	if (!ignore_file) {
 		perror("fopen");
 		goto cleanup;
 	}
 	size_t size = 0;
-	char *line = NULL;
+	char* line = NULL;
 	while (getline(&line, &size, ignore_file) != -1) {
-		char *ptr = line;
+		char* ptr = line;
 		while (*ptr && isspace(*ptr))
 			ptr++; // skip whitespace
-		char *start = ptr;
+		char* start = ptr;
 		while (*ptr && !(*ptr == '#' || isspace(*ptr)))
 			ptr++; // skip till comment or whitespace
 		*ptr = '\0';
@@ -52,4 +52,4 @@ cleanup:
 	fs_node_free(root);
 }
 
-void usage(const char **argv) { printf("%s [ignore.txt]\n", argv[0]); }
+void usage(const char** argv) { printf("%s [ignore.txt]\n", argv[0]); }
