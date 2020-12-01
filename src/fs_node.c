@@ -60,7 +60,7 @@ void fs_node_free(fs_node* node)
 	free(node);
 }
 
-void fs_node_ignore_path(fs_node* root, const char* path)
+fs_node* fs_node_match(fs_node* root, const char* path)
 {
 	fs_node* node = root;
 	char* path_dup = expand_path(path);
@@ -80,13 +80,36 @@ void fs_node_ignore_path(fs_node* root, const char* path)
 			}
 		}
 		if (!found) {
+			node = NULL;
 			goto cleanup;
 		}
 		token = strtok_r(NULL, "/", &context);
 	}
-	node->ignored = 1;
 cleanup:
 	free(path_dup);
+	return node;
+}
+
+void fs_node_ignore_path(fs_node* root, const char* path)
+{
+	fs_node* node = fs_node_match(root, path);
+	if (node)
+		node->ignored = 1;
+}
+
+static void fs_node_blacklist_recursive(fs_node* node)
+{
+	node->ignored = 0;
+	for (size_t i = 0; i < node->n_children; ++i) {
+		fs_node_blacklist_recursive(node->children[i]);
+	}
+}
+
+void fs_node_blacklist_path(fs_node* root, const char* path)
+{
+	fs_node* node = fs_node_match(root, path);
+	if (node)
+		fs_node_blacklist_recursive(node);
 }
 
 void fs_node_ignore_public_in_home(fs_node* root)
