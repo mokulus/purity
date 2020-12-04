@@ -42,11 +42,11 @@ int main(int argc, char* argv[])
 	fs_node_ignore_dotfiles_symlinks(root);
 
 	change_dir(argv[0]);
-	if (whitelist_path &&
-	    process_file(whitelist_path, root, fs_node_ignore_path) == -1)
-		goto cleanup;
 	if (blacklist_path &&
 	    process_file(blacklist_path, root, fs_node_blacklist_path) == -1)
+		goto cleanup;
+	if (whitelist_path &&
+	    process_file(whitelist_path, root, fs_node_ignore_path) == -1)
 		goto cleanup;
 
 	fs_node_propagate_ignored(root);
