@@ -8,18 +8,18 @@
 #include <unistd.h>
 
 struct fs_node {
-	fs_node* parent;
-	char* path;
-	char* name;
-	fs_node** children;
+	fs_node *parent;
+	char *path;
+	char *name;
+	fs_node **children;
 	size_t n_children;
 	unsigned int ignored;
 	unsigned int folded;
 };
 
-fs_node* fs_node_init(fs_node* parent, const char* path)
+fs_node *fs_node_init(fs_node *parent, const char *path)
 {
-	fs_node* fsn = malloc(sizeof(*fsn));
+	fs_node *fsn = malloc(sizeof(*fsn));
 	fsn->parent = parent;
 	fsn->name = strdup(path);
 	if (fsn->parent) {
@@ -29,10 +29,10 @@ fs_node* fs_node_init(fs_node* parent, const char* path)
 	}
 	fsn->children = NULL;
 	fsn->n_children = 0;
-	DIR* dir = opendir(fsn->path);
+	DIR *dir = opendir(fsn->path);
 	if (dir) {
 		size_t index = 0;
-		struct dirent* d;
+		struct dirent *d;
 		while ((d = readdir(dir))) {
 			if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
 				continue;
@@ -49,7 +49,7 @@ fs_node* fs_node_init(fs_node* parent, const char* path)
 	return fsn;
 }
 
-void fs_node_free(fs_node* node)
+void fs_node_free(fs_node *node)
 {
 	for (size_t i = 0; i < node->n_children; ++i) {
 		fs_node_free(node->children[i]);
@@ -60,13 +60,13 @@ void fs_node_free(fs_node* node)
 	free(node);
 }
 
-fs_node* fs_node_match(fs_node* root, const char* path)
+fs_node *fs_node_match(fs_node *root, const char *path)
 {
-	fs_node* node = root;
-	char* path_dup = expand_path(path);
-	char* token_loc = path_dup;
-	char* context;
-	char* token = strtok_r(token_loc, "/", &context); // skip home
+	fs_node *node = root;
+	char *path_dup = expand_path(path);
+	char *token_loc = path_dup;
+	char *context;
+	char *token = strtok_r(token_loc, "/", &context); // skip home
 	/* skip user, get to first interesting one */
 	for (int i = 0; i < 2; ++i)
 		token = strtok_r(NULL, "/", &context);
@@ -90,14 +90,14 @@ cleanup:
 	return node;
 }
 
-void fs_node_ignore_path(fs_node* root, const char* path)
+void fs_node_ignore_path(fs_node *root, const char *path)
 {
-	fs_node* node = fs_node_match(root, path);
+	fs_node *node = fs_node_match(root, path);
 	if (node)
 		node->ignored = 1;
 }
 
-static void fs_node_blacklist_recursive(fs_node* node)
+static void fs_node_blacklist_recursive(fs_node *node)
 {
 	node->ignored = 0;
 	for (size_t i = 0; i < node->n_children; ++i) {
@@ -105,24 +105,24 @@ static void fs_node_blacklist_recursive(fs_node* node)
 	}
 }
 
-void fs_node_blacklist_path(fs_node* root, const char* path)
+void fs_node_blacklist_path(fs_node *root, const char *path)
 {
-	fs_node* node = fs_node_match(root, path);
+	fs_node *node = fs_node_match(root, path);
 	if (node)
 		fs_node_blacklist_recursive(node);
 }
 
-void fs_node_ignore_public_in_home(fs_node* root)
+void fs_node_ignore_public_in_home(fs_node *root)
 {
 	for (size_t i = 0; i < root->n_children; ++i) {
-		fs_node* child = root->children[i];
+		fs_node *child = root->children[i];
 		if (child->name[0] != '.') {
 			child->ignored = 1;
 		}
 	}
 }
 
-void fs_node_ignore_git_repos(fs_node* node)
+void fs_node_ignore_git_repos(fs_node *node)
 {
 	struct stat sb;
 	// TODO errors
@@ -133,18 +133,18 @@ void fs_node_ignore_git_repos(fs_node* node)
 				node->parent->ignored = 1;
 		} else {
 			for (size_t i = 0; i < node->n_children; ++i) {
-				fs_node* child = node->children[i];
+				fs_node *child = node->children[i];
 				fs_node_ignore_git_repos(child);
 			}
 		}
 	}
 }
 
-void fs_node_ignore_symlinks_in_home(fs_node* root)
+void fs_node_ignore_symlinks_in_home(fs_node *root)
 {
 	struct stat sb;
 	for (size_t i = 0; i < root->n_children; ++i) {
-		fs_node* child = root->children[i];
+		fs_node *child = root->children[i];
 		// TODO fix errors
 		lstat(child->path, &sb);
 		if (S_ISLNK(sb.st_mode)) {
@@ -153,7 +153,7 @@ void fs_node_ignore_symlinks_in_home(fs_node* root)
 	}
 }
 
-void fs_node_ignore_dotfiles_symlinks(fs_node* node)
+void fs_node_ignore_dotfiles_symlinks(fs_node *node)
 {
 	struct stat sb;
 	// TODO fix errors
@@ -170,23 +170,23 @@ void fs_node_ignore_dotfiles_symlinks(fs_node* node)
 	}
 
 	for (size_t i = 0; i < node->n_children; ++i) {
-		fs_node* child = node->children[i];
+		fs_node *child = node->children[i];
 		fs_node_ignore_dotfiles_symlinks(child);
 	}
 }
 
-void fs_node_propagate_folded(fs_node* node)
+void fs_node_propagate_folded(fs_node *node)
 {
 	if (!node->n_children) {
 		node->folded = !node->ignored;
 	} else {
 		for (size_t i = 0; i < node->n_children; ++i) {
-			fs_node* child = node->children[i];
+			fs_node *child = node->children[i];
 			fs_node_propagate_folded(child);
 		}
 		unsigned int all_folded = 1;
 		for (size_t i = 0; i < node->n_children; ++i) {
-			fs_node* child = node->children[i];
+			fs_node *child = node->children[i];
 			if (!child->folded) {
 				all_folded = 0;
 				break;
@@ -196,24 +196,24 @@ void fs_node_propagate_folded(fs_node* node)
 	}
 }
 
-void fs_node_propagate_ignored(fs_node* node)
+void fs_node_propagate_ignored(fs_node *node)
 {
 	for (size_t i = 0; i < node->n_children; ++i) {
-		fs_node* child = node->children[i];
+		fs_node *child = node->children[i];
 		if (node->ignored)
 			child->ignored = 1;
 		fs_node_propagate_ignored(child);
 	}
 }
 
-static int fs_node_cmp(const void* p1, const void* p2)
+static int fs_node_cmp(const void *p1, const void *p2)
 {
-	const fs_node* const fsn1 = *(const fs_node* const*)p1;
-	const fs_node* const fsn2 = *(const fs_node* const*)p2;
+	const fs_node *const fsn1 = *(const fs_node *const *)p1;
+	const fs_node *const fsn2 = *(const fs_node *const *)p2;
 	return strcmp(fsn1->path, fsn2->path);
 }
 
-void fs_node_print(fs_node* node)
+void fs_node_print(fs_node *node)
 {
 	if (node->ignored)
 		return;
@@ -230,7 +230,7 @@ void fs_node_print(fs_node* node)
 		qsort(node->children, node->n_children, sizeof(*node->children),
 		      fs_node_cmp);
 		for (size_t i = 0; i < node->n_children; ++i) {
-			fs_node* child = node->children[i];
+			fs_node *child = node->children[i];
 			fs_node_print(child);
 		}
 	}

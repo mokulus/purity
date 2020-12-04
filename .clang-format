@@ -2,6 +2,6 @@ BasedOnStyle: LLVM
 IndentWidth: 8
 UseTab: Always
 BreakBeforeBraces: Linux
-PointerAlignment: Left
+PointerAlignment: Right
 AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: false
