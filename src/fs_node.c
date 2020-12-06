@@ -81,11 +81,11 @@ fs_node *fs_node_match(fs_node *root, const char *path)
 		}
 		if (!found) {
 			node = NULL;
-			goto cleanup;
+			break;
 		}
 		token = strtok_r(NULL, "/", &context);
 	}
-cleanup:
+
 	free(path_dup);
 	return node;
 }
