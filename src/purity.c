@@ -11,7 +11,8 @@ void change_dir(const char *path);
 int process_file(const char *filename, fs_node *root,
 		 void callback(fs_node *root, const char *str));
 
-int main(int argc, char *argv[])
+int
+main(int argc, char *argv[])
 {
 	char *whitelist_path = NULL;
 	char *blacklist_path = NULL;
@@ -56,12 +57,14 @@ cleanup:
 	fs_node_free(root);
 }
 
-void usage(const char *arg0)
+void
+usage(const char *arg0)
 {
 	printf("%s [-w whitelist.txt] [-b blacklist.txt]\n", arg0);
 }
 
-void change_dir(const char *path)
+void
+change_dir(const char *path)
 {
 	char *rpath = realpath(path, NULL);
 	char *dir_name = dirname(rpath);
@@ -69,8 +72,9 @@ void change_dir(const char *path)
 	free(rpath);
 }
 
-int process_file(const char *filename, fs_node *root,
-		 void callback(fs_node *root, const char *str))
+int
+process_file(const char *filename, fs_node *root,
+	     void callback(fs_node *root, const char *str))
 {
 	unsigned int ret = 0;
 	size_t size = 0;
