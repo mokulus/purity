@@ -1,7 +1,7 @@
 #include "path_util.h"
-#include <bsd/string.h>
 #include <stdlib.h>
 #include <wordexp.h>
+#include <string.h>
 
 char *join_path(const char *a, const char *b)
 {
@@ -9,9 +9,9 @@ char *join_path(const char *a, const char *b)
 	const size_t len_b = strlen(b);
 	const size_t total_len = len_a + 1 + len_b + 1;
 	char *path = malloc(total_len);
-	strlcpy(path, a, total_len);
+	memcpy(path, a, len_a);
 	path[len_a] = '/';
-	strlcpy(path + len_a + 1, b, total_len);
+	memcpy(path + len_a + 1, b, len_b);
 	path[len_a + 1 + len_b] = '\0';
 	return path;
 }

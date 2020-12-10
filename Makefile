@@ -1,5 +1,5 @@
 FLAGS=-O2 -D_DEFAULT_SOURCE -g -Wall -Wextra -pedantic -std=c99
-LDFLAGS=-lbsd
+LDFLAGS=
 
 SRC = $(wildcard src/*.c)
 HDR = $(wildcard src/*.h)
