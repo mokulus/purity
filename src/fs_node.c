@@ -32,15 +32,18 @@ fs_node_init(fs_node *parent, const char *path)
 	fsn->n_children = 0;
 	DIR *dir = opendir(fsn->path);
 	if (dir) {
-		size_t index = 0;
 		struct dirent *d;
 		while ((d = readdir(dir))) {
 			if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
 				continue;
 			fsn->n_children++;
-			fsn->children =
-			    realloc(fsn->children,
-				    fsn->n_children * sizeof(*fsn->children));
+		}
+		fsn->children = calloc(fsn->n_children, sizeof(*fsn->children));
+		rewinddir(dir);
+		size_t index = 0;
+		while ((d = readdir(dir))) {
+			if (!strcmp(d->d_name, ".") || !strcmp(d->d_name, ".."))
+				continue;
 			fsn->children[index++] = fs_node_init(fsn, d->d_name);
 		}
 		closedir(dir);
