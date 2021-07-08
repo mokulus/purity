@@ -136,8 +136,8 @@ void
 fs_node_ignore_git_repos(fs_node *node)
 {
 	struct stat sb;
-	// TODO errors
-	lstat(node->path, &sb);
+	if (lstat(node->path, &sb) == -1)
+		return;
 	if (S_ISDIR(sb.st_mode)) {
 		if (!strcmp(node->name, ".git")) {
 			if (node->parent)
@@ -157,8 +157,8 @@ fs_node_ignore_symlinks_in_home(fs_node *root)
 	struct stat sb;
 	for (size_t i = 0; i < root->n_children; ++i) {
 		fs_node *child = root->children[i];
-		// TODO fix errors
-		lstat(child->path, &sb);
+		if (lstat(child->path, &sb) == -1)
+			continue;
 		if (S_ISLNK(sb.st_mode)) {
 			child->ignored = 1;
 		}
@@ -169,8 +169,8 @@ void
 fs_node_ignore_dotfiles_symlinks(fs_node *node)
 {
 	struct stat sb;
-	// TODO fix errors
-	lstat(node->path, &sb);
+	if (lstat(node->path, &sb) == -1)
+		return;
 	if (S_ISLNK(sb.st_mode)) {
 		char buf[1024];
 		ssize_t len = readlink(node->path, buf, sizeof(buf) - 1);
@@ -238,8 +238,7 @@ fs_node_print(fs_node *node)
 	if (node->folded) {
 		printf("%s", node->path);
 		struct stat sb;
-		lstat(node->path, &sb);
-		if (S_ISDIR(sb.st_mode)) {
+		if (lstat(node->path, &sb) == 0 && S_ISDIR(sb.st_mode)) {
 			printf("/");
 		}
 		printf("\n");
