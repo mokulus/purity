@@ -1,35 +1,50 @@
-FLAGS=-O2 -D_DEFAULT_SOURCE -g -Wall -Wextra -pedantic -std=c99
-LDFLAGS=
+NAME=purity
+COMMON_FLAGS=-Wall -Wextra -Wpedantic -Wno-missing-field-initializers
+LDFLAGS=-lbsd -pthread
+RFLAGS=-O2 $(COMMON_FLAGS)
+DFLAGS=-Og -g -fanalyzer $(COMMON_FLAGS)
 
 SRC = $(wildcard src/*.c)
 HDR = $(wildcard src/*.h)
-OBJ = $(SRC:src/%.c=obj/%.o)
 
-.PHONY: all format
+ROBJ = $(SRC:src/%.c=release/obj/%.o)
+DOBJ = $(SRC:src/%.c=debug/obj/%.o)
 
-all: purity ignore.txt
+
+release: release/$(NAME)
+
+release/$(NAME): $(ROBJ)
+	$(CC) $(RFLAGS) $(LDFLAGS) $^ -o $@
+
+release/obj/%.o: src/%.c | release/obj
+	$(CC) $(RFLAGS) $^ -c -o $@
+
+release/obj:
+	mkdir -p $@
+
+
+debug: debug/$(NAME)
+
+debug/$(NAME): $(DOBJ)
+	$(CC) $(DFLAGS) $(LDFLAGS) $^ -o $@
+
+debug/obj/%.o: src/%.c | debug/obj
+	$(CC) $(DFLAGS) $^ -c -o $@
+
+debug/obj:
+	mkdir -p $@
+
 
 format: $(SRC) $(HDR)
-	echo $(SRC) $(HDR)
-	clang-format -i --style=file $^
-
-purity: $(OBJ)
-	$(CC) $(LDFLAGS) $(CFLAGS) $(FLAGS) $^ -o purity
-
-obj/%.o: src/%.c|obj
-	$(CC) $(CFLAGS) $(FLAGS) -c $< -o $@
+	astyle -n --style=linux --indent=tab $^
 
 clean:
-	rm -rf purity obj
+	rm -rf $(NAME) release debug
 
-install: purity
-	cp $< /usr/local/bin/
+install: release
+	cp -f release/$(NAME) /usr/local/bin/$(NAME)
 
 uninstall:
-	rm -f /usr/local/bin/purity
+	rm -f /usr/local/bin/$(NAME)
 
-ignore.txt: ignore.def.txt
-	cp $< $@
-
-obj:
-	mkdir -p $@
+.PHONY: release debug format clean install uninstall
