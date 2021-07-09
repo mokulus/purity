@@ -16,9 +16,21 @@ typedef struct {
 	size_t len;
 } dirlist;
 
+typedef struct {
+	dirlist **dls;
+	size_t len;
+} dirlist_stack;
+
 void usage(const char *arg0);
 void change_dir(const char *path);
 dirlist *process_file(const char *filename);
+int ftsent_compare(const FTSENT** ap, const FTSENT** bp);
+
+void dirlist_add(dirlist *dl, char *str);
+void dirlist_free(dirlist *dl);
+dirlist *dirlist_stack_add(dirlist_stack *dls);
+void dirlist_stack_remove(dirlist_stack *dls);
+void dirlist_stack_free(dirlist_stack *dls);
 
 int
 main(int argc, char *argv[])
@@ -45,29 +57,33 @@ main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-
 	dirlist *whitelist;
 	if (whitelist_path) {
 		whitelist = process_file(whitelist_path);
 	} else {
 		whitelist = calloc(1, sizeof(*whitelist));
+		if (!whitelist)
+			return 1;
 	}
 	dirlist *blacklist;
 	if (blacklist_path) {
 		blacklist = process_file(blacklist_path);
 	} else {
 		blacklist = calloc(1, sizeof(*blacklist));
+		if (!blacklist)
+			return 1;
 	}
 	char *home = expand_path("~");
 
-	FTS *fts = fts_open( (char *const[]){home, NULL}, FTS_PHYSICAL, NULL);
+	FTS *fts = fts_open( (char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
 	if (!fts) {
 		perror("fts_open");
 		return 1;
 	}
-	dirlist **pls = NULL;
-	size_t pls_len = 0;
 
+	dirlist_stack *dls = calloc(1, sizeof(*dls));
+	if (!dls)
+		return 1;
 	for (;;) {
 		FTSENT *ent = fts_read(fts);
 		if (!ent) {
@@ -78,11 +94,7 @@ main(int argc, char *argv[])
 				return 1;
 			}
 		}
-		if (ent->fts_level == 0)
-			continue;
-
 		if (ent->fts_info == FTS_DP)  {
-			/* printf("DP for %s\n", ent->fts_path); */
 			size_t nchildren = 0;
 			// can't use fts_children here because last fts_read
 			// was the last child of this directory
@@ -91,45 +103,22 @@ main(int argc, char *argv[])
 				nchildren++;
 			closedir(dir);
 			nchildren -= 2; // remove . and ..
-			if (pls[pls_len-1]->len == nchildren) {
-				// all were bad, mark this one as bad
-				if (pls_len >= 2 ) {
-					/* printf("All bad: %s\n", ent->fts_path); */
-					dirlist *last_pl = pls[pls_len-2];
-					last_pl->len++;
-					last_pl->paths = realloc(last_pl->paths, sizeof(*last_pl->paths) * last_pl->len);
-					last_pl->paths[last_pl->len - 1] = strdup(ent->fts_path);
-				} else {
-					/* printf("Bad top level: %s\n", ent->fts_path); */
-					// top level with all children to print
-					// so just print it
-					puts(ent->fts_path);
-				}
-			} else if (pls[pls_len-1]->len == 0) {
-				// was whitelisted, do nothing
-				/* printf("Empty frame: %s\n", ent->fts_path); */
+			dirlist *last_dl = dls->dls[dls->len-1];
+			if (last_dl->len == nchildren) {
+				// all were bad, mark this one as bad in the previous pane
+				dirlist_add(dls->dls[dls->len-2], strdup(ent->fts_path));
 			} else {
-				// some were good, print the bad ones
-				/* printf("Mixed frame: %s\n", ent->fts_path); */
-				/* printf("Children %zu - listed %zu\n", nchildren, pls[pls_len-1]->len); */
-				for (size_t i = 0; i < pls[pls_len-1]->len; ++i)
-					puts(pls[pls_len-1]->paths[i]);
+				// some were good, print the bad ones, if any
+				for (size_t i = 0; i < last_dl->len; ++i)
+					puts(last_dl->paths[i]);
 			}
-			pls_len--;
-			for (size_t i = 0; i < pls[pls_len]->len; ++i)
-				free(pls[pls_len]->paths[i]);
-			pls = realloc(pls, pls_len * sizeof(*pls));
+			dirlist_stack_remove(dls);
 			continue;
 		}
 
 		if (ent->fts_info == FTS_D) {
 			// make new frame for new directory
-			/* printf("New frame for %s\n", ent->fts_path); */
-			pls_len++;
-			pls = realloc(pls, pls_len * sizeof(*pls));
-			pls[pls_len-1] = malloc(sizeof(**pls));
-			pls[pls_len-1]->len = 0;
-			pls[pls_len-1]->paths = NULL;
+			dirlist_stack_add(dls);
 		}
 
 		int whitelisted = 0;
@@ -194,11 +183,8 @@ main(int argc, char *argv[])
 
 		if (ent->fts_info != FTS_D) {
 			/* printf("Marking as bad: %s\n", ent->fts_path); */
-			if (pls_len >= 1) {
-				dirlist *last_pl = pls[pls_len-1];
-				last_pl->len++;
-				last_pl->paths = realloc(last_pl->paths, sizeof(*last_pl->paths) * last_pl->len);
-				last_pl->paths[last_pl->len - 1] = strdup(ent->fts_path);
+			if (dls->len >= 1) {
+				dirlist_add(dls->dls[dls->len-1], strdup(ent->fts_path));
 			} else {
 				/* printf("Non dir in top level: %s\n", ent->fts_path); */
 				// non dir in top level
@@ -210,6 +196,9 @@ main(int argc, char *argv[])
 	}
 	fts_close(fts);
 	free(home);
+	dirlist_stack_free(dls);
+	dirlist_free(whitelist);
+	dirlist_free(blacklist);
 }
 
 void
@@ -252,13 +241,54 @@ dirlist *process_file(const char *filename)
 			ptr++; // skip till comment or whitespace
 		*ptr = '\0';
 		if (*start) { // ensure path is not empty (it's not just a comment line)
-			dl->len++;
-			dl->paths = realloc(dl->paths, sizeof(*dl->paths) * dl->len);
-			dl->paths[dl->len - 1] = expand_path(start);
+			dirlist_add(dl, expand_path(start));
 		}
 	}
 cleanup:
 	free(line);
 	fclose(file);
 	return dl;
+}
+
+int ftsent_compare(const FTSENT** ap, const FTSENT** bp)
+{
+	const FTSENT *a = *ap;
+	const FTSENT *b = *bp;
+	return strcmp(a->fts_name, b->fts_name);
+}
+
+void dirlist_add(dirlist *dl, char *str) {
+	dl->len++;
+	dl->paths = realloc(dl->paths, sizeof(*dl->paths) * dl->len);
+	dl->paths[dl->len - 1] = str;
+}
+
+dirlist *dirlist_stack_add(dirlist_stack *dls) {
+	dls->len++;
+	dls->dls = realloc(dls->dls, dls->len * sizeof(*dls->dls));
+	dls->dls[dls->len - 1] = malloc(sizeof(**dls->dls));
+	dls->dls[dls->len - 1]->len = 0;
+	dls->dls[dls->len - 1]->paths = NULL;
+	return dls->dls[dls->len - 1];
+}
+
+void dirlist_stack_remove(dirlist_stack *dls) {
+	dirlist_free(dls->dls[dls->len - 1]);
+	dls->len--;
+	dls->dls = realloc(dls->dls, dls->len * sizeof(*dls->dls));
+}
+
+void dirlist_free(dirlist *dl) {
+	for (size_t i = 0; i < dl->len; ++i)
+		free(dl->paths[i]);
+	free(dl->paths);
+	free(dl);
+}
+
+void dirlist_stack_free(dirlist_stack *dls) {
+	for (size_t i = 0; i < dls->len; ++i) {
+		dirlist_free(dls->dls[i]);
+	}
+	free(dls->dls);
+	free(dls);
 }
