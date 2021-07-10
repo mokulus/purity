@@ -19,7 +19,7 @@ dirlist *process_file(const char *filename);
 int ftsent_compare(const FTSENT **ap, const FTSENT **bp);
 
 dirlist *dirlist_file(const char *path);
-int str_common_start(const char *haystack, const char *needle);
+int str_starts_with(const char *haystack, const char *needle);
 
 int main(int argc, char *argv[])
 {
@@ -100,7 +100,7 @@ int main(int argc, char *argv[])
 
 		char *wpath =
 		    whitelist->paths[dirlist_search(whitelist, ent->fts_path)];
-		if (str_common_start(ent->fts_path, wpath)) {
+		if (str_starts_with(ent->fts_path, wpath)) {
 			/* printf("%s matched %s\n", ent->fts_path, wpath); */
 			/* printf("Whitelisted: %s\n", ent->fts_path); */
 			fts_set(fts, ent, FTS_SKIP);
@@ -109,7 +109,7 @@ int main(int argc, char *argv[])
 
 		int blacklisted = 0;
 		for (size_t i = 0; i < blacklist->len; ++i) {
-			if (str_common_start(ent->fts_path,
+			if (str_starts_with(ent->fts_path,
 					     blacklist->paths[i])) {
 				blacklisted = 1;
 				break;
@@ -253,7 +253,7 @@ dirlist *dirlist_file(const char *path)
 	return list;
 }
 
-int str_common_start(const char *haystack, const char *needle)
+int str_starts_with(const char *haystack, const char *needle)
 {
 	size_t lh = strlen(haystack);
 	size_t ln = strlen(needle);
