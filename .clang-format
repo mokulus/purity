@@ -5,4 +5,3 @@ BreakBeforeBraces: Linux
 PointerAlignment: Right
 AllowShortIfStatementsOnASingleLine: false
 IndentCaseLabels: false
-AlwaysBreakAfterReturnType: AllDefinitions

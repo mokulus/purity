@@ -36,7 +36,7 @@ debug/obj:
 
 
 format: $(SRC) $(HDR)
-	astyle -n --style=linux --indent=tab $^
+	clang-format -i --style=file $^
 
 clean:
 	rm -rf $(NAME) release debug
