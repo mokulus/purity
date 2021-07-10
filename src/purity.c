@@ -262,9 +262,9 @@ dirlist *dirlist_file(const char *path)
 
 int str_starts_with(const char *haystack, const char *needle)
 {
-	size_t lh = strlen(haystack);
-	size_t ln = strlen(needle);
-	if (ln > lh)
-		return 0;
-	return strncmp(haystack, needle, ln) == 0;
+	while (*haystack && *haystack == *needle) {
+		haystack++;
+		needle++;
+	}
+	return !*needle;
 }
