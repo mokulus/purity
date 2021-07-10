@@ -107,25 +107,14 @@ int main(int argc, char *argv[])
 			dirlist_stack_add(dls);
 		}
 
-		char *wpath =
-		    whitelist->paths[dirlist_search(whitelist, ent->fts_path)];
-		if (str_starts_with(ent->fts_path, wpath)) {
-			/* printf("%s matched %s\n", ent->fts_path, wpath); */
-			/* printf("Whitelisted: %s\n", ent->fts_path); */
+		int windex = dirlist_search(whitelist, ent->fts_path);
+		if (windex != -1 && str_starts_with(ent->fts_path, whitelist->paths[windex])) {
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
 
-		int blacklisted = 0;
-		for (size_t i = 0; i < blacklist->len; ++i) {
-			if (str_starts_with(ent->fts_path,
-					    blacklist->paths[i])) {
-				blacklisted = 1;
-				break;
-			}
-		}
-		if (blacklisted) {
-			/* printf("Blacklisted: %s\n", ent->fts_path); */
+		int bindex = dirlist_search(blacklist, ent->fts_path);
+		if (bindex != -1 && str_starts_with(ent->fts_path, blacklist->paths[bindex])) {
 			puts(ent->fts_path);
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
