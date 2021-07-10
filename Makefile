@@ -1,5 +1,5 @@
 NAME=purity
-COMMON_FLAGS=-Wall -Wextra -Wpedantic -Wno-missing-field-initializers
+COMMON_FLAGS=-Wall -Wextra -Wpedantic
 LDFLAGS=-lbsd -pthread
 RFLAGS=-O2 -flto $(COMMON_FLAGS)
 DFLAGS=-Og -g -fanalyzer $(COMMON_FLAGS)
