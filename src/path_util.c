@@ -3,8 +3,7 @@
 #include <string.h>
 #include <wordexp.h>
 
-char *
-join_path(const char *a, const char *b)
+char *join_path(const char *a, const char *b)
 {
 	const size_t len_a = strlen(a);
 	const size_t len_b = strlen(b);
@@ -17,8 +16,7 @@ join_path(const char *a, const char *b)
 	return path;
 }
 
-char *
-expand_path(const char *path)
+char *expand_path(const char *path)
 {
 	wordexp_t exp;
 	wordexp(path, &exp, 0);

@@ -1,15 +1,15 @@
+#include "path_util.h"
 #include <ctype.h>
+#include <dirent.h>
+#include <errno.h>
+#include <fts.h>
 #include <getopt.h>
 #include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <fts.h>
-#include <sys/stat.h>
-#include <errno.h>
 #include <string.h>
-#include "path_util.h"
-#include <dirent.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 typedef struct {
 	char **paths;
@@ -24,7 +24,7 @@ typedef struct {
 void usage(const char *arg0);
 void change_dir(const char *path);
 dirlist *process_file(const char *filename);
-int ftsent_compare(const FTSENT** ap, const FTSENT** bp);
+int ftsent_compare(const FTSENT **ap, const FTSENT **bp);
 
 void dirlist_add(dirlist *dl, char *str);
 void dirlist_free(dirlist *dl);
@@ -35,8 +35,7 @@ dirlist *dirlist_file(const char *path);
 int str_common_start(const char *haystack, const char *needle);
 size_t dirlist_search(const dirlist *dl, const char *str);
 
-int
-main(int argc, char *argv[])
+int main(int argc, char *argv[])
 {
 	char *whitelist_path = NULL;
 	char *blacklist_path = NULL;
@@ -64,7 +63,8 @@ main(int argc, char *argv[])
 	dirlist *blacklist = dirlist_file(blacklist_path);
 	char *home = expand_path("~");
 
-	FTS *fts = fts_open( (char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
+	FTS *fts =
+	    fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
 	if (!fts) {
 		perror("fts_open");
 		return 1;
@@ -83,7 +83,7 @@ main(int argc, char *argv[])
 				return 1;
 			}
 		}
-		if (ent->fts_info == FTS_DP)  {
+		if (ent->fts_info == FTS_DP) {
 			size_t nchildren = 0;
 			// can't use fts_children here because last fts_read
 			// was the last child of this directory
@@ -92,10 +92,12 @@ main(int argc, char *argv[])
 				nchildren++;
 			closedir(dir);
 			nchildren -= 2; // remove . and ..
-			dirlist *last_dl = dls->dls[dls->len-1];
+			dirlist *last_dl = dls->dls[dls->len - 1];
 			if (last_dl->len == nchildren) {
-				// all were bad, mark this one as bad in the previous frame
-				dirlist_add(dls->dls[dls->len-2], strdup(ent->fts_path));
+				// all were bad, mark this one as bad in the
+				// previous frame
+				dirlist_add(dls->dls[dls->len - 2],
+					    strdup(ent->fts_path));
 			} else {
 				// some were good, print the bad ones, if any
 				for (size_t i = 0; i < last_dl->len; ++i)
@@ -110,7 +112,8 @@ main(int argc, char *argv[])
 			dirlist_stack_add(dls);
 		}
 
-		char *wpath = whitelist->paths[dirlist_search(whitelist, ent->fts_path)];
+		char *wpath =
+		    whitelist->paths[dirlist_search(whitelist, ent->fts_path)];
 		if (str_common_start(ent->fts_path, wpath)) {
 			/* printf("%s matched %s\n", ent->fts_path, wpath); */
 			/* printf("Whitelisted: %s\n", ent->fts_path); */
@@ -120,7 +123,8 @@ main(int argc, char *argv[])
 
 		int blacklisted = 0;
 		for (size_t i = 0; i < blacklist->len; ++i) {
-			if (str_common_start(ent->fts_path, blacklist->paths[i])) {
+			if (str_common_start(ent->fts_path,
+					     blacklist->paths[i])) {
 				blacklisted = 1;
 				break;
 			}
@@ -133,7 +137,8 @@ main(int argc, char *argv[])
 		}
 
 		int is_git_repo = 0;
-		for (FTSENT *link = fts_children(fts, FTS_NAMEONLY); link; link = link->fts_link) {
+		for (FTSENT *link = fts_children(fts, FTS_NAMEONLY); link;
+		     link = link->fts_link) {
 			if (!strcmp(link->fts_name, ".git")) {
 				is_git_repo = 1;
 				break;
@@ -159,7 +164,8 @@ main(int argc, char *argv[])
 			continue;
 		}
 		/* dotfiles */
-		if (S_ISLNK(ent->fts_statp->st_mode) && strstr(ent->fts_path, "dotfiles")) {
+		if (S_ISLNK(ent->fts_statp->st_mode) &&
+		    strstr(ent->fts_path, "dotfiles")) {
 			/* printf("Dotfiles symlink: %s\n", ent->fts_path); */
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
@@ -168,9 +174,11 @@ main(int argc, char *argv[])
 		if (ent->fts_info != FTS_D) {
 			/* printf("Marking as bad: %s\n", ent->fts_path); */
 			if (dls->len >= 1) {
-				dirlist_add(dls->dls[dls->len-1], strdup(ent->fts_path));
+				dirlist_add(dls->dls[dls->len - 1],
+					    strdup(ent->fts_path));
 			} else {
-				/* printf("Non dir in top level: %s\n", ent->fts_path); */
+				/* printf("Non dir in top level: %s\n",
+				 * ent->fts_path); */
 				// non dir in top level
 				// print it
 				puts(ent->fts_path);
@@ -185,14 +193,12 @@ main(int argc, char *argv[])
 	dirlist_free(blacklist);
 }
 
-void
-usage(const char *arg0)
+void usage(const char *arg0)
 {
 	printf("%s [-w whitelist.txt] [-b blacklist.txt]\n", arg0);
 }
 
-void
-change_dir(const char *path)
+void change_dir(const char *path)
 {
 	char *rpath = realpath(path, NULL);
 	char *dir_name = dirname(rpath);
@@ -224,7 +230,8 @@ dirlist *process_file(const char *filename)
 		while (*ptr && !(*ptr == '#' || isspace(*ptr)))
 			ptr++; // skip till comment or whitespace
 		*ptr = '\0';
-		if (*start) { // ensure path is not empty (it's not just a comment line)
+		if (*start) { // ensure path is not empty (it's not just a
+			// comment line)
 			dirlist_add(dl, expand_path(start));
 		}
 	}
@@ -234,20 +241,22 @@ cleanup:
 	return dl;
 }
 
-int ftsent_compare(const FTSENT** ap, const FTSENT** bp)
+int ftsent_compare(const FTSENT **ap, const FTSENT **bp)
 {
 	const FTSENT *a = *ap;
 	const FTSENT *b = *bp;
 	return strcmp(a->fts_name, b->fts_name);
 }
 
-void dirlist_add(dirlist *dl, char *str) {
+void dirlist_add(dirlist *dl, char *str)
+{
 	dl->len++;
 	dl->paths = realloc(dl->paths, sizeof(*dl->paths) * dl->len);
 	dl->paths[dl->len - 1] = str;
 }
 
-dirlist *dirlist_stack_add(dirlist_stack *dls) {
+dirlist *dirlist_stack_add(dirlist_stack *dls)
+{
 	dls->len++;
 	dls->dls = realloc(dls->dls, dls->len * sizeof(*dls->dls));
 	dls->dls[dls->len - 1] = malloc(sizeof(**dls->dls));
@@ -256,20 +265,23 @@ dirlist *dirlist_stack_add(dirlist_stack *dls) {
 	return dls->dls[dls->len - 1];
 }
 
-void dirlist_stack_remove(dirlist_stack *dls) {
+void dirlist_stack_remove(dirlist_stack *dls)
+{
 	dirlist_free(dls->dls[dls->len - 1]);
 	dls->len--;
 	dls->dls = realloc(dls->dls, dls->len * sizeof(*dls->dls));
 }
 
-void dirlist_free(dirlist *dl) {
+void dirlist_free(dirlist *dl)
+{
 	for (size_t i = 0; i < dl->len; ++i)
 		free(dl->paths[i]);
 	free(dl->paths);
 	free(dl);
 }
 
-void dirlist_stack_free(dirlist_stack *dls) {
+void dirlist_stack_free(dirlist_stack *dls)
+{
 	for (size_t i = 0; i < dls->len; ++i) {
 		dirlist_free(dls->dls[i]);
 	}
@@ -277,13 +289,15 @@ void dirlist_stack_free(dirlist_stack *dls) {
 	free(dls);
 }
 
-static int strcmpp(const void *ap, const void *bp) {
+static int strcmpp(const void *ap, const void *bp)
+{
 	const char *a = *(const char **)ap;
 	const char *b = *(const char **)bp;
 	return strcmp(a, b);
 }
 
-dirlist *dirlist_file(const char *path) {
+dirlist *dirlist_file(const char *path)
+{
 	dirlist *list;
 	if (path) {
 		list = process_file(path);
@@ -294,7 +308,8 @@ dirlist *dirlist_file(const char *path) {
 	return list;
 }
 
-int str_common_start(const char *haystack, const char *needle) {
+int str_common_start(const char *haystack, const char *needle)
+{
 	size_t lh = strlen(haystack);
 	size_t ln = strlen(needle);
 	if (ln > lh)
@@ -302,7 +317,8 @@ int str_common_start(const char *haystack, const char *needle) {
 	return strncmp(haystack, needle, ln) == 0;
 }
 
-size_t dirlist_search(const dirlist *dl, const char *str) {
+size_t dirlist_search(const dirlist *dl, const char *str)
+{
 	int low = 0;
 	int high = dl->len - 1;
 	int mid = -1;

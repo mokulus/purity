@@ -17,8 +17,7 @@ struct fs_node {
 	unsigned int folded;
 };
 
-fs_node *
-fs_node_init(fs_node *parent, const char *path)
+fs_node *fs_node_init(fs_node *parent, const char *path)
 {
 	fs_node *fsn = malloc(sizeof(*fsn));
 	fsn->parent = parent;
@@ -53,8 +52,7 @@ fs_node_init(fs_node *parent, const char *path)
 	return fsn;
 }
 
-void
-fs_node_free(fs_node *node)
+void fs_node_free(fs_node *node)
 {
 	for (size_t i = 0; i < node->n_children; ++i) {
 		fs_node_free(node->children[i]);
@@ -65,8 +63,7 @@ fs_node_free(fs_node *node)
 	free(node);
 }
 
-fs_node *
-fs_node_match(fs_node *root, const char *path)
+fs_node *fs_node_match(fs_node *root, const char *path)
 {
 	fs_node *node = root;
 	char *path_dup = expand_path(path);
@@ -96,16 +93,14 @@ fs_node_match(fs_node *root, const char *path)
 	return node;
 }
 
-void
-fs_node_ignore_path(fs_node *root, const char *path)
+void fs_node_ignore_path(fs_node *root, const char *path)
 {
 	fs_node *node = fs_node_match(root, path);
 	if (node)
 		node->ignored = 1;
 }
 
-static void
-fs_node_blacklist_recursive(fs_node *node)
+static void fs_node_blacklist_recursive(fs_node *node)
 {
 	node->ignored = 0;
 	for (size_t i = 0; i < node->n_children; ++i) {
@@ -113,16 +108,14 @@ fs_node_blacklist_recursive(fs_node *node)
 	}
 }
 
-void
-fs_node_blacklist_path(fs_node *root, const char *path)
+void fs_node_blacklist_path(fs_node *root, const char *path)
 {
 	fs_node *node = fs_node_match(root, path);
 	if (node)
 		fs_node_blacklist_recursive(node);
 }
 
-void
-fs_node_ignore_public_in_home(fs_node *root)
+void fs_node_ignore_public_in_home(fs_node *root)
 {
 	for (size_t i = 0; i < root->n_children; ++i) {
 		fs_node *child = root->children[i];
@@ -132,8 +125,7 @@ fs_node_ignore_public_in_home(fs_node *root)
 	}
 }
 
-void
-fs_node_ignore_git_repos(fs_node *node)
+void fs_node_ignore_git_repos(fs_node *node)
 {
 	struct stat sb;
 	if (lstat(node->path, &sb) == -1)
@@ -151,8 +143,7 @@ fs_node_ignore_git_repos(fs_node *node)
 	}
 }
 
-void
-fs_node_ignore_symlinks_in_home(fs_node *root)
+void fs_node_ignore_symlinks_in_home(fs_node *root)
 {
 	struct stat sb;
 	for (size_t i = 0; i < root->n_children; ++i) {
@@ -165,8 +156,7 @@ fs_node_ignore_symlinks_in_home(fs_node *root)
 	}
 }
 
-void
-fs_node_ignore_dotfiles_symlinks(fs_node *node)
+void fs_node_ignore_dotfiles_symlinks(fs_node *node)
 {
 	struct stat sb;
 	if (lstat(node->path, &sb) == -1)
@@ -188,8 +178,7 @@ fs_node_ignore_dotfiles_symlinks(fs_node *node)
 	}
 }
 
-void
-fs_node_propagate_folded(fs_node *node)
+void fs_node_propagate_folded(fs_node *node)
 {
 	if (!node->n_children) {
 		node->folded = !node->ignored;
@@ -210,8 +199,7 @@ fs_node_propagate_folded(fs_node *node)
 	}
 }
 
-void
-fs_node_propagate_ignored(fs_node *node)
+void fs_node_propagate_ignored(fs_node *node)
 {
 	for (size_t i = 0; i < node->n_children; ++i) {
 		fs_node *child = node->children[i];
@@ -221,16 +209,14 @@ fs_node_propagate_ignored(fs_node *node)
 	}
 }
 
-static int
-fs_node_cmp(const void *p1, const void *p2)
+static int fs_node_cmp(const void *p1, const void *p2)
 {
 	const fs_node *const fsn1 = *(const fs_node *const *)p1;
 	const fs_node *const fsn2 = *(const fs_node *const *)p2;
 	return strcmp(fsn1->path, fsn2->path);
 }
 
-void
-fs_node_print(fs_node *node)
+void fs_node_print(fs_node *node)
 {
 	if (node->ignored)
 		return;
