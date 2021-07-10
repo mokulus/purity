@@ -1,3 +1,5 @@
+#include "dirlist.h"
+#include "dirlist_stack.h"
 #include "path_util.h"
 #include <ctype.h>
 #include <dirent.h>
@@ -11,29 +13,13 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-typedef struct {
-	char **paths;
-	size_t len;
-} dirlist;
-
-typedef struct {
-	dirlist **dls;
-	size_t len;
-} dirlist_stack;
-
 void usage(const char *arg0);
 void change_dir(const char *path);
 dirlist *process_file(const char *filename);
 int ftsent_compare(const FTSENT **ap, const FTSENT **bp);
 
-void dirlist_add(dirlist *dl, char *str);
-void dirlist_free(dirlist *dl);
-dirlist *dirlist_stack_add(dirlist_stack *dls);
-void dirlist_stack_remove(dirlist_stack *dls);
-void dirlist_stack_free(dirlist_stack *dls);
 dirlist *dirlist_file(const char *path);
 int str_common_start(const char *haystack, const char *needle);
-size_t dirlist_search(const dirlist *dl, const char *str);
 
 int main(int argc, char *argv[])
 {
@@ -248,47 +234,6 @@ int ftsent_compare(const FTSENT **ap, const FTSENT **bp)
 	return strcmp(a->fts_name, b->fts_name);
 }
 
-void dirlist_add(dirlist *dl, char *str)
-{
-	dl->len++;
-	dl->paths = realloc(dl->paths, sizeof(*dl->paths) * dl->len);
-	dl->paths[dl->len - 1] = str;
-}
-
-dirlist *dirlist_stack_add(dirlist_stack *dls)
-{
-	dls->len++;
-	dls->dls = realloc(dls->dls, dls->len * sizeof(*dls->dls));
-	dls->dls[dls->len - 1] = malloc(sizeof(**dls->dls));
-	dls->dls[dls->len - 1]->len = 0;
-	dls->dls[dls->len - 1]->paths = NULL;
-	return dls->dls[dls->len - 1];
-}
-
-void dirlist_stack_remove(dirlist_stack *dls)
-{
-	dirlist_free(dls->dls[dls->len - 1]);
-	dls->len--;
-	dls->dls = realloc(dls->dls, dls->len * sizeof(*dls->dls));
-}
-
-void dirlist_free(dirlist *dl)
-{
-	for (size_t i = 0; i < dl->len; ++i)
-		free(dl->paths[i]);
-	free(dl->paths);
-	free(dl);
-}
-
-void dirlist_stack_free(dirlist_stack *dls)
-{
-	for (size_t i = 0; i < dls->len; ++i) {
-		dirlist_free(dls->dls[i]);
-	}
-	free(dls->dls);
-	free(dls);
-}
-
 static int strcmpp(const void *ap, const void *bp)
 {
 	const char *a = *(const char **)ap;
@@ -315,23 +260,4 @@ int str_common_start(const char *haystack, const char *needle)
 	if (ln > lh)
 		return 0;
 	return strncmp(haystack, needle, ln) == 0;
-}
-
-size_t dirlist_search(const dirlist *dl, const char *str)
-{
-	int low = 0;
-	int high = dl->len - 1;
-	int mid = -1;
-	while (low <= high) {
-		mid = (low + high) / 2;
-		int cmp = strcmp(dl->paths[mid], str);
-		if (cmp < 0) {
-			low = mid + 1;
-		} else if (cmp == 0) {
-			return mid;
-		} else {
-			high = mid - 1;
-		}
-	}
-	return mid;
 }
