@@ -16,7 +16,6 @@
 void usage(const char *arg0);
 void change_dir(const char *path);
 dirlist *dirlist_read_file(const char *filename);
-int ftsent_compare(const FTSENT **ap, const FTSENT **bp);
 
 dirlist *dirlist_file(const char *path);
 int str_starts_with(const char *haystack, const char *needle);
@@ -61,7 +60,7 @@ int main(int argc, char *argv[])
 	if (!home)
 		goto fail;
 	fts =
-	    fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
+	    fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL);
 	if (!fts)
 		goto fail;
 	dls = calloc(1, sizeof(*dls));
@@ -229,13 +228,6 @@ fail:
 	if (file)
 		fclose(file);
 	return dl;
-}
-
-int ftsent_compare(const FTSENT **ap, const FTSENT **bp)
-{
-	const FTSENT *a = *ap;
-	const FTSENT *b = *bp;
-	return strcmp(a->fts_name, b->fts_name);
 }
 
 static int strcmpp(const void *ap, const void *bp)
