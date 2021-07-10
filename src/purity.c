@@ -45,20 +45,28 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	dirlist *whitelist = dirlist_file(whitelist_path);
-	dirlist *blacklist = dirlist_file(blacklist_path);
-	char *home = expand_path("~");
+	dirlist *whitelist = NULL;
+	dirlist *blacklist = NULL;
+	char *home = NULL;
+	FTS *fts = NULL;
+	dirlist_stack *dls = NULL;
 
-	FTS *fts =
-	    fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
-	if (!fts) {
-		perror("fts_open");
-		return 1;
-	}
-
-	dirlist_stack *dls = calloc(1, sizeof(*dls));
+	whitelist = dirlist_file(whitelist_path);
+	if (!whitelist)
+		goto fail;
+	blacklist = dirlist_file(blacklist_path);
+	if (!blacklist)
+		goto fail;
+	home = expand_path("~");
+	if (!home)
+		goto fail;
+	fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
+	if (!fts)
+		goto fail;
+	dls = calloc(1, sizeof(*dls));
 	if (!dls)
-		return 1;
+		goto fail;
+
 	for (;;) {
 		FTSENT *ent = fts_read(fts);
 		if (!ent) {
@@ -172,9 +180,11 @@ int main(int argc, char *argv[])
 		}
 		/* printf("Should print: %s\n", ent->fts_path); */
 	}
+
+fail:
+	dirlist_stack_free(dls);
 	fts_close(fts);
 	free(home);
-	dirlist_stack_free(dls);
 	dirlist_free(whitelist);
 	dirlist_free(blacklist);
 }
@@ -253,8 +263,11 @@ dirlist *dirlist_file(const char *path)
 		list = dirlist_read_file(path);
 	} else {
 		list = calloc(1, sizeof(*list));
+		if (!list)
+			perror("calloc");
 	}
-	qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
+	if (list)
+		qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
 	return list;
 }
 
