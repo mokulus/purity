@@ -15,7 +15,7 @@
 
 void usage(const char *arg0);
 void change_dir(const char *path);
-dirlist *process_file(const char *filename);
+dirlist *dirlist_read_file(const char *filename);
 int ftsent_compare(const FTSENT **ap, const FTSENT **bp);
 
 dirlist *dirlist_file(const char *path);
@@ -192,38 +192,43 @@ void change_dir(const char *path)
 	free(rpath);
 }
 
-dirlist *process_file(const char *filename)
+dirlist *dirlist_read_file(const char *filename)
 {
-	dirlist *dl = malloc(sizeof(*dl));
-	dl->paths = NULL;
-	dl->len = 0;
-	if (!dl)
-		return dl;
-	size_t size = 0;
+	dirlist *dl = NULL;
 	char *line = NULL;
-	FILE *file = fopen(filename, "r");
+	FILE *file = NULL;
+
+	dl = calloc(1, sizeof(*dl));
+	if (!dl) {
+		perror("calloc");
+		goto fail;
+	}
+	size_t size = 0;
+	file = fopen(filename, "r");
 	if (!file) {
-		free(dl);
-		dl = NULL;
 		perror("fopen");
-		goto cleanup;
+		goto fail;
 	}
 	while (getline(&line, &size, file) != -1) {
 		char *ptr = line;
+		// skip whitespace
 		while (*ptr && isspace(*ptr))
-			ptr++; // skip whitespace
+			ptr++;
 		char *start = ptr;
+		// skip till comment or whitespace
 		while (*ptr && !(*ptr == '#' || isspace(*ptr)))
-			ptr++; // skip till comment or whitespace
+			ptr++;
 		*ptr = '\0';
-		if (*start) { // ensure path is not empty (it's not just a
-			// comment line)
+		// ensure path is not empty (it's not just a comment line)
+		if (*start) {
 			dirlist_add(dl, expand_path(start));
 		}
 	}
-cleanup:
+
+fail:
 	free(line);
-	fclose(file);
+	if (file)
+		fclose(file);
 	return dl;
 }
 
@@ -243,9 +248,9 @@ static int strcmpp(const void *ap, const void *bp)
 
 dirlist *dirlist_file(const char *path)
 {
-	dirlist *list;
+	dirlist *list = NULL;
 	if (path) {
-		list = process_file(path);
+		list = dirlist_read_file(path);
 	} else {
 		list = calloc(1, sizeof(*list));
 	}
