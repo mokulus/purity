@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 				break;
 			} else {
 				perror("fts_read");
-				return 1;
+				goto fail;
 			}
 		}
 		if (ent->fts_info == FTS_DP) {
@@ -179,7 +179,6 @@ int main(int argc, char *argv[])
 				puts(ent->fts_path);
 			}
 		}
-		/* printf("Should print: %s\n", ent->fts_path); */
 	}
 
 fail:
