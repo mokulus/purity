@@ -60,7 +60,8 @@ int main(int argc, char *argv[])
 	home = expand_path("~");
 	if (!home)
 		goto fail;
-	fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
+	fts =
+	    fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
 	if (!fts)
 		goto fail;
 	dls = calloc(1, sizeof(*dls));
@@ -118,7 +119,7 @@ int main(int argc, char *argv[])
 		int blacklisted = 0;
 		for (size_t i = 0; i < blacklist->len; ++i) {
 			if (str_starts_with(ent->fts_path,
-					     blacklist->paths[i])) {
+					    blacklist->paths[i])) {
 				blacklisted = 1;
 				break;
 			}
