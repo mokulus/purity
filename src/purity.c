@@ -31,6 +31,9 @@ void dirlist_free(dirlist *dl);
 dirlist *dirlist_stack_add(dirlist_stack *dls);
 void dirlist_stack_remove(dirlist_stack *dls);
 void dirlist_stack_free(dirlist_stack *dls);
+dirlist *dirlist_file(const char *path);
+int str_common_start(const char *haystack, const char *needle);
+size_t dirlist_search(const dirlist *dl, const char *str);
 
 int
 main(int argc, char *argv[])
@@ -57,22 +60,8 @@ main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	dirlist *whitelist;
-	if (whitelist_path) {
-		whitelist = process_file(whitelist_path);
-	} else {
-		whitelist = calloc(1, sizeof(*whitelist));
-		if (!whitelist)
-			return 1;
-	}
-	dirlist *blacklist;
-	if (blacklist_path) {
-		blacklist = process_file(blacklist_path);
-	} else {
-		blacklist = calloc(1, sizeof(*blacklist));
-		if (!blacklist)
-			return 1;
-	}
+	dirlist *whitelist = dirlist_file(whitelist_path);
+	dirlist *blacklist = dirlist_file(blacklist_path);
 	char *home = expand_path("~");
 
 	FTS *fts = fts_open( (char *const[]){home, NULL}, FTS_PHYSICAL, ftsent_compare);
@@ -105,7 +94,7 @@ main(int argc, char *argv[])
 			nchildren -= 2; // remove . and ..
 			dirlist *last_dl = dls->dls[dls->len-1];
 			if (last_dl->len == nchildren) {
-				// all were bad, mark this one as bad in the previous pane
+				// all were bad, mark this one as bad in the previous frame
 				dirlist_add(dls->dls[dls->len-2], strdup(ent->fts_path));
 			} else {
 				// some were good, print the bad ones, if any
@@ -121,14 +110,9 @@ main(int argc, char *argv[])
 			dirlist_stack_add(dls);
 		}
 
-		int whitelisted = 0;
-		for (size_t i = 0; i < whitelist->len; ++i) {
-			if(strstr(ent->fts_path, whitelist->paths[i]) == ent->fts_path) {
-				whitelisted = 1;
-				break;
-			}
-		}
-		if (whitelisted) {
+		char *wpath = whitelist->paths[dirlist_search(whitelist, ent->fts_path)];
+		if (str_common_start(ent->fts_path, wpath)) {
+			/* printf("%s matched %s\n", ent->fts_path, wpath); */
 			/* printf("Whitelisted: %s\n", ent->fts_path); */
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
@@ -136,7 +120,7 @@ main(int argc, char *argv[])
 
 		int blacklisted = 0;
 		for (size_t i = 0; i < blacklist->len; ++i) {
-			if(strstr(ent->fts_path, blacklist->paths[i]) == ent->fts_path) {
+			if (str_common_start(ent->fts_path, blacklist->paths[i])) {
 				blacklisted = 1;
 				break;
 			}
@@ -291,4 +275,47 @@ void dirlist_stack_free(dirlist_stack *dls) {
 	}
 	free(dls->dls);
 	free(dls);
+}
+
+static int strcmpp(const void *ap, const void *bp) {
+	const char *a = *(const char **)ap;
+	const char *b = *(const char **)bp;
+	return strcmp(a, b);
+}
+
+dirlist *dirlist_file(const char *path) {
+	dirlist *list;
+	if (path) {
+		list = process_file(path);
+	} else {
+		list = calloc(1, sizeof(*list));
+	}
+	qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
+	return list;
+}
+
+int str_common_start(const char *haystack, const char *needle) {
+	size_t lh = strlen(haystack);
+	size_t ln = strlen(needle);
+	if (ln > lh)
+		return 0;
+	return strncmp(haystack, needle, ln) == 0;
+}
+
+size_t dirlist_search(const dirlist *dl, const char *str) {
+	int low = 0;
+	int high = dl->len - 1;
+	int mid = -1;
+	while (low <= high) {
+		mid = (low + high) / 2;
+		int cmp = strcmp(dl->paths[mid], str);
+		if (cmp < 0) {
+			low = mid + 1;
+		} else if (cmp == 0) {
+			return mid;
+		} else {
+			high = mid - 1;
+		}
+	}
+	return mid;
 }
