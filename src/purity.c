@@ -45,18 +45,18 @@ int main(int argc, char *argv[])
 	FTS *fts = NULL;
 	stack *stack = NULL;
 
-	if (!whitelist = dirlist_file(whitelist_path))
+	if (!(whitelist = dirlist_file(whitelist_path)))
 		goto fail;
-	if (!blacklist = dirlist_file(blacklist_path))
+	if (!(blacklist = dirlist_file(blacklist_path)))
 		goto fail;
-	if (!home = expand_path("~"))
+	if (!(home = expand_path("~")))
 		goto fail;
-	if (!fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL))
+	if (!(fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL)))
 		goto fail;
-	if (!stack = calloc(1, sizeof(*stack)))
+	if (!(stack = calloc(1, sizeof(*stack))))
 		goto fail;
 
-	short whitelist_parent = -1;
+	short skip_parent_level = -1;
 	for (;;) {
 		FTSENT *ent = fts_read(fts);
 		if (!ent) {
@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 				--start_index;
 			size_t nmarked = stack->indices_len - 1 - start_index;
 			unsigned is_whitelisted =
-			    whitelist_parent == ent->fts_level;
+			    skip_parent_level == ent->fts_level;
 			unsigned is_fully_marked = nmarked == nchildren;
 			if (!is_whitelisted && !is_fully_marked) {
 				// some were good, print the bad ones, if any
@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 					  ent->fts_pathlen);
 			}
 			if (is_whitelisted)
-				whitelist_parent = -1;
+				skip_parent_level = -1;
 			continue;
 		}
 
@@ -115,7 +115,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (!strcmp(ent->fts_name, ".git")) {
-			whitelist_parent = ent->fts_level - 1;
+			skip_parent_level = ent->fts_level - 1;
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
