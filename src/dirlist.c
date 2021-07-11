@@ -1,9 +1,9 @@
 #include "dirlist.h"
 #include "util.h"
+#include <ctype.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <ctype.h>
 
 static void dirlist_add(dirlist *dl, char *str);
 static int strcmpp(const void *ap, const void *bp);

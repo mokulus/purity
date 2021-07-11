@@ -1,6 +1,6 @@
 #include "dirlist.h"
-#include "util.h"
 #include "stack.h"
+#include "util.h"
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -82,12 +82,13 @@ int main(int argc, char *argv[])
 			while (*stack_at(stack, start_index))
 				--start_index;
 			size_t nmarked = stack->indices_len - 1 - start_index;
-			unsigned is_whitelisted = whitelist_parent == ent->fts_level;
+			unsigned is_whitelisted =
+			    whitelist_parent == ent->fts_level;
 			unsigned is_fully_marked = nmarked == nchildren;
 			if (!is_whitelisted && !is_fully_marked) {
 				// some were good, print the bad ones, if any
-				for (size_t i = start_index + 1; i < stack->indices_len;
-				     ++i)
+				for (size_t i = start_index + 1;
+				     i < stack->indices_len; ++i)
 					puts(stack_at(stack, i));
 			}
 			stack->data_len = stack->indices[start_index];
@@ -95,7 +96,8 @@ int main(int argc, char *argv[])
 			if (!is_whitelisted && is_fully_marked) {
 				// all were bad, mark this one as bad in the
 				// previous frame, so only after freeing
-				stack_add(stack, ent->fts_path, ent->fts_pathlen);
+				stack_add(stack, ent->fts_path,
+					  ent->fts_pathlen);
 			}
 			if (is_whitelisted)
 				whitelist_parent = -1;
