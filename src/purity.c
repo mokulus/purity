@@ -65,7 +65,8 @@ int main(int argc, char *argv[])
 	stack = calloc(1, sizeof(*stack));
 	if (!stack)
 		goto fail;
-
+	short whitelist_prune_level = -1;
+	short whitelist_parent = -1;
 	for (;;) {
 		FTSENT *ent = fts_read(fts);
 		if (!ent) {
@@ -76,23 +77,26 @@ int main(int argc, char *argv[])
 				goto fail;
 			}
 		}
-		if (ent->fts_info == FTS_DP) {
+		if (whitelist_prune_level == ent->fts_level)
+			whitelist_prune_level = -1;
+		if (ent->fts_info == FTS_DP || ent->fts_info == FTS_DNR) {
 			size_t nchildren = 0;
 			// can't use fts_children here because last fts_read
 			// was the last child of this directory
 			DIR *dir = opendir(ent->fts_path);
-			if (!dir) {
+			if (dir) {
+				while (readdir(dir))
+					nchildren++;
+				closedir(dir);
+				nchildren -= 2; // remove . and ..
+			} else {
 				fprintf(stderr, "opendir %s: %s\n", ent->fts_path, strerror(errno));
-				goto fail;
+				nchildren = -1;
 			}
-			while (readdir(dir))
-				nchildren++;
-			closedir(dir);
-			nchildren -= 2; // remove . and ..
 			size_t start_index;
 			for (start_index = stack->len - 1; stack->paths[start_index]; --start_index);
 			size_t nmarked = stack->len - 1 - start_index;
-			if (nmarked != nchildren) {
+			if (whitelist_parent != ent->fts_level && nmarked != nchildren) {
 				// some were good, print the bad ones, if any
 				for (size_t i = start_index + 1; i < stack->len; ++i)
 					puts(stack->paths[i]);
@@ -100,11 +104,13 @@ int main(int argc, char *argv[])
 			for (size_t i = start_index; i < stack->len; ++i)
 				free(stack->paths[i]);
 			stack->len = start_index;
-			if (nmarked == nchildren) {
+			if (whitelist_parent != ent->fts_level && nmarked == nchildren) {
 				// all were bad, mark this one as bad in the
 				// previous frame, so only after freeing
 				dirlist_add(stack, strdup(ent->fts_path));
 			}
+			if (whitelist_parent == ent->fts_level)
+				whitelist_parent = -1;
 			continue;
 		}
 
@@ -113,29 +119,49 @@ int main(int argc, char *argv[])
 			dirlist_add(stack, NULL);
 		}
 
-		int windex = dirlist_search(whitelist, ent->fts_path);
-		if (windex != -1 && !strcmp(ent->fts_path, whitelist->paths[windex])) {
-			fts_set(fts, ent, FTS_SKIP);
-			continue;
+		if (whitelist_prune_level > ent->fts_level || whitelist_prune_level == -1) {
+			int windex = dirlist_search(whitelist, ent->fts_path);
+			if (windex != -1 && str_starts_with(ent->fts_path, whitelist->paths[windex])) {
+				fts_set(fts, ent, FTS_SKIP);
+				continue;
+			} else {
+				int could_get_match = 0;
+				for (size_t i = 0; i < whitelist->len; ++i) {
+					if (str_starts_with(whitelist->paths[i], ent->fts_path)) {
+						could_get_match = 1;
+						break;
+					}
+				}
+				if (!could_get_match) {
+					whitelist_prune_level = ent->fts_level;
+				}
+			}
+		} else {
+			/* fprintf(stderr, "pruned %s\n", ent->fts_path); */
 		}
 
 		int bindex = dirlist_search(blacklist, ent->fts_path);
-		if (bindex != -1 && !strcmp(ent->fts_path, blacklist->paths[bindex])) {
+		if (bindex != -1 && str_starts_with(ent->fts_path, blacklist->paths[bindex])) {
 			puts(ent->fts_path);
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
 
-		int is_git_repo = 0;
-		for (FTSENT *link = fts_children(fts, FTS_NAMEONLY); link;
-		     link = link->fts_link) {
-			if (!strcmp(link->fts_name, ".git")) {
-				is_git_repo = 1;
-				break;
-			}
-		}
-		if (is_git_repo) {
-			/* printf("Git repo: %s\n", ent->fts_path); */
+		/* int is_git_repo = 0; */
+		/* for (FTSENT *link = fts_children(fts, FTS_NAMEONLY); link; */
+		/*      link = link->fts_link) { */
+		/* 	if (!strcmp(link->fts_name, ".git")) { */
+		/* 		is_git_repo = 1; */
+		/* 		break; */
+		/* 	} */
+		/* } */
+		/* if (is_git_repo) { */
+		/* 	/1* printf("Git repo: %s\n", ent->fts_path); *1/ */
+		/* 	fts_set(fts, ent, FTS_SKIP); */
+		/* 	continue; */
+		/* } */
+		if (!strcmp(ent->fts_name, ".git")) {
+			whitelist_parent = ent->fts_level - 1;
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
