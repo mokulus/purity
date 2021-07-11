@@ -17,6 +17,7 @@ void change_dir(const char *path);
 dirlist *dirlist_read_file(const char *filename);
 
 dirlist *dirlist_file(const char *path);
+int str_starts_with(const char *haystack, const char *needle);
 
 int main(int argc, char *argv[])
 {
@@ -246,4 +247,13 @@ dirlist *dirlist_file(const char *path)
 	if (list)
 		qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
 	return list;
+}
+
+int str_starts_with(const char *haystack, const char *needle)
+{
+	while (*haystack && *haystack == *needle) {
+		haystack++;
+		needle++;
+	}
+	return !*needle;
 }
