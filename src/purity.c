@@ -1,5 +1,4 @@
 #include "dirlist.h"
-#include "dirlist_stack.h"
 #include "path_util.h"
 #include <ctype.h>
 #include <dirent.h>
@@ -48,7 +47,7 @@ int main(int argc, char *argv[])
 	dirlist *blacklist = NULL;
 	char *home = NULL;
 	FTS *fts = NULL;
-	dirlist_stack *dls = NULL;
+	dirlist *stack = NULL;
 
 	whitelist = dirlist_file(whitelist_path);
 	if (!whitelist)
@@ -63,8 +62,8 @@ int main(int argc, char *argv[])
 	    fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL);
 	if (!fts)
 		goto fail;
-	dls = calloc(1, sizeof(*dls));
-	if (!dls)
+	stack = calloc(1, sizeof(*stack));
+	if (!stack)
 		goto fail;
 
 	for (;;) {
@@ -82,28 +81,36 @@ int main(int argc, char *argv[])
 			// can't use fts_children here because last fts_read
 			// was the last child of this directory
 			DIR *dir = opendir(ent->fts_path);
+			if (!dir) {
+				fprintf(stderr, "opendir %s: %s\n", ent->fts_path, strerror(errno));
+				goto fail;
+			}
 			while (readdir(dir))
 				nchildren++;
 			closedir(dir);
 			nchildren -= 2; // remove . and ..
-			dirlist *last_dl = dls->dls[dls->len - 1];
-			if (last_dl->len == nchildren) {
-				// all were bad, mark this one as bad in the
-				// previous frame
-				dirlist_add(dls->dls[dls->len - 2],
-					    strdup(ent->fts_path));
-			} else {
+			size_t start_index;
+			for (start_index = stack->len - 1; stack->paths[start_index]; --start_index);
+			size_t nmarked = stack->len - 1 - start_index;
+			if (nmarked != nchildren) {
 				// some were good, print the bad ones, if any
-				for (size_t i = 0; i < last_dl->len; ++i)
-					puts(last_dl->paths[i]);
+				for (size_t i = start_index + 1; i < stack->len; ++i)
+					puts(stack->paths[i]);
 			}
-			dirlist_stack_remove(dls);
+			for (size_t i = start_index; i < stack->len; ++i)
+				free(stack->paths[i]);
+			stack->len = start_index;
+			if (nmarked == nchildren) {
+				// all were bad, mark this one as bad in the
+				// previous frame, so only after freeing
+				dirlist_add(stack, strdup(ent->fts_path));
+			}
 			continue;
 		}
 
 		if (ent->fts_info == FTS_D) {
-			// make new frame for new directory
-			dirlist_stack_add(dls);
+			// mark new frame for new directory
+			dirlist_add(stack, NULL);
 		}
 
 		int windex = dirlist_search(whitelist, ent->fts_path);
@@ -155,22 +162,12 @@ int main(int argc, char *argv[])
 		}
 
 		if (ent->fts_info != FTS_D) {
-			/* printf("Marking as bad: %s\n", ent->fts_path); */
-			if (dls->len >= 1) {
-				dirlist_add(dls->dls[dls->len - 1],
-					    strdup(ent->fts_path));
-			} else {
-				/* printf("Non dir in top level: %s\n",
-				 * ent->fts_path); */
-				// non dir in top level
-				// print it
-				puts(ent->fts_path);
-			}
+			dirlist_add(stack, strdup(ent->fts_path));
 		}
 	}
 
 fail:
-	dirlist_stack_free(dls);
+	dirlist_free(stack);
 	fts_close(fts);
 	free(home);
 	dirlist_free(whitelist);
