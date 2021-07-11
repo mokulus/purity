@@ -14,7 +14,6 @@
 #include <unistd.h>
 
 void usage(const char *arg0);
-int str_starts_with(const char *haystack, const char *needle);
 
 int main(int argc, char *argv[])
 {
@@ -61,7 +60,7 @@ int main(int argc, char *argv[])
 	stack = calloc(1, sizeof(*stack));
 	if (!stack)
 		goto fail;
-	short whitelist_prune_level = -1;
+	/* short whitelist_prune_level = -1; */
 	short whitelist_parent = -1;
 	for (;;) {
 		FTSENT *ent = fts_read(fts);
@@ -73,9 +72,7 @@ int main(int argc, char *argv[])
 				goto fail;
 			}
 		}
-		/* disable pruning if we came back to the same level */
-		if (whitelist_prune_level == ent->fts_level)
-			whitelist_prune_level = -1;
+
 		if (ent->fts_info == FTS_DP || ent->fts_info == FTS_DNR) {
 			size_t nchildren = ent->fts_number - 1;
 			size_t start_index = stack->indices_len - 1;
@@ -111,31 +108,12 @@ int main(int argc, char *argv[])
 			stack_add(stack, NULL, 0);
 		}
 
-		if (whitelist_prune_level == -1) {
-			int windex = dirlist_search(whitelist, ent->fts_path);
-			if (windex != -1 &&
-			    str_starts_with(ent->fts_path,
-					    whitelist->paths[windex])) {
-				fts_set(fts, ent, FTS_SKIP);
-				continue;
-			} else {
-				int could_get_match = 0;
-				for (size_t i = 0; i < whitelist->len; ++i) {
-					if (str_starts_with(whitelist->paths[i],
-							    ent->fts_path)) {
-						could_get_match = 1;
-						break;
-					}
-				}
-				if (!could_get_match) {
-					whitelist_prune_level = ent->fts_level;
-				}
-			}
+		if (dirlist_match(whitelist, ent)) {
+			fts_set(fts, ent, FTS_SKIP);
+			continue;
 		}
 
-		int bindex = dirlist_search(blacklist, ent->fts_path);
-		if (bindex != -1 &&
-		    str_starts_with(ent->fts_path, blacklist->paths[bindex])) {
+		if (dirlist_match(blacklist, ent)) {
 			puts(ent->fts_path);
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
@@ -181,13 +159,4 @@ fail:
 void usage(const char *arg0)
 {
 	printf("%s [-w whitelist.txt] [-b blacklist.txt]\n", arg0);
-}
-
-int str_starts_with(const char *haystack, const char *needle)
-{
-	while (*haystack && *haystack == *needle) {
-		haystack++;
-		needle++;
-	}
-	return !*needle;
 }

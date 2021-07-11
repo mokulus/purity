@@ -5,9 +5,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+static size_t dirlist_search(const dirlist *dl, const char *str);
 static void dirlist_add(dirlist *dl, char *str);
 static int strcmpp(const void *ap, const void *bp);
 static dirlist *dirlist_read_file(const char *filename);
+static int str_starts_with(const char *haystack, const char *needle);
 
 dirlist *dirlist_file(const char *path)
 {
@@ -22,7 +24,15 @@ dirlist *dirlist_file(const char *path)
 	return list;
 }
 
-size_t dirlist_search(const dirlist *dl, const char *str)
+void dirlist_free(dirlist *dl)
+{
+	for (size_t i = 0; i < dl->len; ++i)
+		free(dl->paths[i]);
+	free(dl->paths);
+	free(dl);
+}
+
+static size_t dirlist_search(const dirlist *dl, const char *str)
 {
 	size_t base = 0;
 	size_t mid = -1;
@@ -36,14 +46,6 @@ size_t dirlist_search(const dirlist *dl, const char *str)
 			return mid;
 	}
 	return mid;
-}
-
-void dirlist_free(dirlist *dl)
-{
-	for (size_t i = 0; i < dl->len; ++i)
-		free(dl->paths[i]);
-	free(dl->paths);
-	free(dl);
 }
 
 static void dirlist_add(dirlist *dl, char *str)
@@ -69,6 +71,7 @@ static dirlist *dirlist_read_file(const char *filename)
 	dl = calloc(1, sizeof(*dl));
 	if (!dl)
 		goto fail;
+	dl->prune_level = -1;
 	size_t size = 0;
 	file = fopen(filename, "r");
 	if (!file)
@@ -94,4 +97,39 @@ fail:
 	if (file)
 		fclose(file);
 	return dl;
+}
+
+static int str_starts_with(const char *haystack, const char *needle)
+{
+	while (*haystack && *haystack == *needle) {
+		haystack++;
+		needle++;
+	}
+	return !*needle;
+}
+
+unsigned dirlist_match(dirlist *dl, FTSENT *ent)
+{
+	if (dl->prune_level >= ent->fts_level)
+		dl->prune_level = -1;
+	if (dl->prune_level == -1) {
+		int windex = dirlist_search(dl, ent->fts_path);
+		if (windex != -1 &&
+		    str_starts_with(ent->fts_path, dl->paths[windex])) {
+			return 1;
+		} else {
+			int could_get_match = 0;
+			for (size_t i = 0; i < dl->len; ++i) {
+				if (str_starts_with(dl->paths[i],
+						    ent->fts_path)) {
+					could_get_match = 1;
+					break;
+				}
+			}
+			if (!could_get_match) {
+				dl->prune_level = ent->fts_level;
+			}
+		}
+	}
+	return 0;
 }
