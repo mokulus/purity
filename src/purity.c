@@ -73,32 +73,18 @@ int main(int argc, char *argv[])
 				goto fail;
 			}
 		}
+		/* disable pruning if we came back to the same level */
 		if (whitelist_prune_level == ent->fts_level)
 			whitelist_prune_level = -1;
 		if (ent->fts_info == FTS_DP || ent->fts_info == FTS_DNR) {
 			size_t nchildren = ent->fts_number - 1;
-			// can't use fts_children here because last fts_read
-			// was the last child of this directory
-			/* DIR *dir = opendir(ent->fts_path); */
-			/* if (dir) { */
-			/* 	while (readdir(dir)) */
-			/* 		nchildren++; */
-			/* 	closedir(dir); */
-			/* 	nchildren -= 2; // remove . and .. */
-			/* } else { */
-			/* 	fprintf(stderr, "opendir %s: %s\n", */
-			/* 		ent->fts_path, strerror(errno)); */
-			/* 	nchildren = -1; */
-			/* } */
-			size_t start_index;
-			for (start_index = stack->indices_len - 1; *stack_at(stack, start_index); --start_index) ;
+			size_t start_index = stack->indices_len - 1;
+			while (*stack_at(stack, start_index))
+				--start_index;
 			size_t nmarked = stack->indices_len - 1 - start_index;
-			/* if (nchildren != ent->fts_number) { */
-			/* 	fprintf(stderr, "child mismatch %s actual:%zu fts:%ld marked:%zu\n", ent->fts_path, nchildren, ent->fts_number, nmarked); */
-			/* } */
-			/* fprintf(stderr, "nmarked:%zu nchildren:%ld\n", nmarked, nchildren); */
-			if (whitelist_parent != ent->fts_level &&
-			    nmarked != nchildren) {
+			unsigned is_whitelisted = whitelist_parent == ent->fts_level;
+			unsigned is_fully_marked = nmarked == nchildren;
+			if (!is_whitelisted && !is_fully_marked) {
 				// some were good, print the bad ones, if any
 				for (size_t i = start_index + 1; i < stack->indices_len;
 				     ++i)
@@ -106,13 +92,12 @@ int main(int argc, char *argv[])
 			}
 			stack->data_len = stack->indices[start_index];
 			stack->indices_len = start_index;
-			if (whitelist_parent != ent->fts_level &&
-			    nmarked == nchildren) {
+			if (!is_whitelisted && is_fully_marked) {
 				// all were bad, mark this one as bad in the
 				// previous frame, so only after freeing
 				stack_add(stack, ent->fts_path, ent->fts_pathlen);
 			}
-			if (whitelist_parent == ent->fts_level)
+			if (is_whitelisted)
 				whitelist_parent = -1;
 			continue;
 		}
@@ -124,8 +109,7 @@ int main(int argc, char *argv[])
 			stack_add(stack, NULL, 0);
 		}
 
-		if (whitelist_prune_level > ent->fts_level ||
-		    whitelist_prune_level == -1) {
+		if (whitelist_prune_level == -1) {
 			int windex = dirlist_search(whitelist, ent->fts_path);
 			if (windex != -1 &&
 			    str_starts_with(ent->fts_path,
@@ -145,8 +129,6 @@ int main(int argc, char *argv[])
 					whitelist_prune_level = ent->fts_level;
 				}
 			}
-		} else {
-			/* fprintf(stderr, "pruned %s\n", ent->fts_path); */
 		}
 
 		int bindex = dirlist_search(blacklist, ent->fts_path);
@@ -157,49 +139,32 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
-		/* int is_git_repo = 0; */
-		/* for (FTSENT *link = fts_children(fts, FTS_NAMEONLY); link; */
-		/*      link = link->fts_link) { */
-		/* 	if (!strcmp(link->fts_name, ".git")) { */
-		/* 		is_git_repo = 1; */
-		/* 		break; */
-		/* 	} */
-		/* } */
-		/* if (is_git_repo) { */
-		/* 	/1* printf("Git repo: %s\n", ent->fts_path); *1/ */
-		/* 	fts_set(fts, ent, FTS_SKIP); */
-		/* 	continue; */
-		/* } */
 		if (!strcmp(ent->fts_name, ".git")) {
 			whitelist_parent = ent->fts_level - 1;
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
-
 		/* public in home */
 		if (ent->fts_level == 1 && ent->fts_name[0] != '.') {
-			/* printf("Public in home: %s\n", ent->fts_path); */
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
-
 		/* symlinks in home */
 		if (ent->fts_level == 1 && S_ISLNK(ent->fts_statp->st_mode)) {
-			/* printf("Symlink in home: %s\n", ent->fts_path); */
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
 		/* dotfiles */
 		if (S_ISLNK(ent->fts_statp->st_mode) &&
 		    strstr(ent->fts_path, "dotfiles")) {
-			/* printf("Dotfiles symlink: %s\n", ent->fts_path); */
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
 
-		if (ent->fts_info != FTS_D) {
+		/* dirs are added in postorder */
+		if (ent->fts_info != FTS_D)
 			stack_add(stack, ent->fts_path, ent->fts_pathlen);
-		}
+
 		ent->fts_number = 1;
 	}
 
