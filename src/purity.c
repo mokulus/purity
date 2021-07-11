@@ -1,5 +1,6 @@
 #include "dirlist.h"
 #include "path_util.h"
+#include "stack.h"
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
@@ -47,7 +48,7 @@ int main(int argc, char *argv[])
 	dirlist *blacklist = NULL;
 	char *home = NULL;
 	FTS *fts = NULL;
-	dirlist *stack = NULL;
+	stack *stack = NULL;
 
 	whitelist = dirlist_file(whitelist_path);
 	if (!whitelist)
@@ -79,49 +80,52 @@ int main(int argc, char *argv[])
 		if (whitelist_prune_level == ent->fts_level)
 			whitelist_prune_level = -1;
 		if (ent->fts_info == FTS_DP || ent->fts_info == FTS_DNR) {
-			size_t nchildren = 0;
+			size_t nchildren = ent->fts_number - 1;
 			// can't use fts_children here because last fts_read
 			// was the last child of this directory
-			DIR *dir = opendir(ent->fts_path);
-			if (dir) {
-				while (readdir(dir))
-					nchildren++;
-				closedir(dir);
-				nchildren -= 2; // remove . and ..
-			} else {
-				fprintf(stderr, "opendir %s: %s\n",
-					ent->fts_path, strerror(errno));
-				nchildren = -1;
-			}
+			/* DIR *dir = opendir(ent->fts_path); */
+			/* if (dir) { */
+			/* 	while (readdir(dir)) */
+			/* 		nchildren++; */
+			/* 	closedir(dir); */
+			/* 	nchildren -= 2; // remove . and .. */
+			/* } else { */
+			/* 	fprintf(stderr, "opendir %s: %s\n", */
+			/* 		ent->fts_path, strerror(errno)); */
+			/* 	nchildren = -1; */
+			/* } */
 			size_t start_index;
-			for (start_index = stack->len - 1;
-			     stack->paths[start_index]; --start_index)
-				;
-			size_t nmarked = stack->len - 1 - start_index;
+			for (start_index = stack->indices_len - 1; *stack_at(stack, start_index); --start_index) ;
+			size_t nmarked = stack->indices_len - 1 - start_index;
+			/* if (nchildren != ent->fts_number) { */
+			/* 	fprintf(stderr, "child mismatch %s actual:%zu fts:%ld marked:%zu\n", ent->fts_path, nchildren, ent->fts_number, nmarked); */
+			/* } */
+			/* fprintf(stderr, "nmarked:%zu nchildren:%ld\n", nmarked, nchildren); */
 			if (whitelist_parent != ent->fts_level &&
 			    nmarked != nchildren) {
 				// some were good, print the bad ones, if any
-				for (size_t i = start_index + 1; i < stack->len;
+				for (size_t i = start_index + 1; i < stack->indices_len;
 				     ++i)
-					puts(stack->paths[i]);
+					puts(stack_at(stack, i));
 			}
-			for (size_t i = start_index; i < stack->len; ++i)
-				free(stack->paths[i]);
-			stack->len = start_index;
+			stack->data_len = stack->indices[start_index];
+			stack->indices_len = start_index;
 			if (whitelist_parent != ent->fts_level &&
 			    nmarked == nchildren) {
 				// all were bad, mark this one as bad in the
 				// previous frame, so only after freeing
-				dirlist_add(stack, strdup(ent->fts_path));
+				stack_add(stack, ent->fts_path, ent->fts_pathlen);
 			}
 			if (whitelist_parent == ent->fts_level)
 				whitelist_parent = -1;
 			continue;
 		}
 
+		ent->fts_parent->fts_number++;
+
 		if (ent->fts_info == FTS_D) {
 			// mark new frame for new directory
-			dirlist_add(stack, NULL);
+			stack_add(stack, NULL, 0);
 		}
 
 		if (whitelist_prune_level > ent->fts_level ||
@@ -198,12 +202,13 @@ int main(int argc, char *argv[])
 		}
 
 		if (ent->fts_info != FTS_D) {
-			dirlist_add(stack, strdup(ent->fts_path));
+			stack_add(stack, ent->fts_path, ent->fts_pathlen);
 		}
+		ent->fts_number = 1;
 	}
 
 fail:
-	dirlist_free(stack);
+	stack_free(stack);
 	fts_close(fts);
 	free(home);
 	dirlist_free(whitelist);
