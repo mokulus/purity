@@ -7,8 +7,8 @@ typedef struct {
 	size_t len;
 } dirlist;
 
-void dirlist_add(dirlist *dl, char *str);
-void dirlist_free(dirlist *dl);
+dirlist *dirlist_file(const char *path);
 size_t dirlist_search(const dirlist *dl, const char *str);
+void dirlist_free(dirlist *dl);
 
 #endif

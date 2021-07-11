@@ -14,10 +14,6 @@
 #include <unistd.h>
 
 void usage(const char *arg0);
-void change_dir(const char *path);
-dirlist *dirlist_read_file(const char *filename);
-
-dirlist *dirlist_file(const char *path);
 int str_starts_with(const char *haystack, const char *needle);
 
 int main(int argc, char *argv[])
@@ -218,70 +214,6 @@ fail:
 void usage(const char *arg0)
 {
 	printf("%s [-w whitelist.txt] [-b blacklist.txt]\n", arg0);
-}
-
-void change_dir(const char *path)
-{
-	char *rpath = realpath(path, NULL);
-	char *dir_name = dirname(rpath);
-	chdir(dir_name);
-	free(rpath);
-}
-
-dirlist *dirlist_read_file(const char *filename)
-{
-	dirlist *dl = NULL;
-	char *line = NULL;
-	FILE *file = NULL;
-
-	dl = calloc(1, sizeof(*dl));
-	if (!dl)
-		goto fail;
-	size_t size = 0;
-	file = fopen(filename, "r");
-	if (!file)
-		goto fail;
-	while (getline(&line, &size, file) != -1) {
-		char *ptr = line;
-		// skip whitespace
-		while (*ptr && isspace(*ptr))
-			ptr++;
-		char *start = ptr;
-		// skip till comment or whitespace
-		while (*ptr && !(*ptr == '#' || isspace(*ptr)))
-			ptr++;
-		*ptr = '\0';
-		// ensure path is not empty (it's not just a comment line)
-		if (*start) {
-			dirlist_add(dl, expand_path(start));
-		}
-	}
-
-fail:
-	free(line);
-	if (file)
-		fclose(file);
-	return dl;
-}
-
-static int strcmpp(const void *ap, const void *bp)
-{
-	const char *a = *(const char **)ap;
-	const char *b = *(const char **)bp;
-	return strcmp(a, b);
-}
-
-dirlist *dirlist_file(const char *path)
-{
-	dirlist *list = NULL;
-	if (path) {
-		list = dirlist_read_file(path);
-	} else {
-		list = calloc(1, sizeof(*list));
-	}
-	if (list)
-		qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
-	return list;
 }
 
 int str_starts_with(const char *haystack, const char *needle)
