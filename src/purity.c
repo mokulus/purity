@@ -58,8 +58,7 @@ int main(int argc, char *argv[])
 	home = expand_path("~");
 	if (!home)
 		goto fail;
-	fts =
-	    fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL);
+	fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL);
 	if (!fts)
 		goto fail;
 	stack = calloc(1, sizeof(*stack));
@@ -90,21 +89,27 @@ int main(int argc, char *argv[])
 				closedir(dir);
 				nchildren -= 2; // remove . and ..
 			} else {
-				fprintf(stderr, "opendir %s: %s\n", ent->fts_path, strerror(errno));
+				fprintf(stderr, "opendir %s: %s\n",
+					ent->fts_path, strerror(errno));
 				nchildren = -1;
 			}
 			size_t start_index;
-			for (start_index = stack->len - 1; stack->paths[start_index]; --start_index);
+			for (start_index = stack->len - 1;
+			     stack->paths[start_index]; --start_index)
+				;
 			size_t nmarked = stack->len - 1 - start_index;
-			if (whitelist_parent != ent->fts_level && nmarked != nchildren) {
+			if (whitelist_parent != ent->fts_level &&
+			    nmarked != nchildren) {
 				// some were good, print the bad ones, if any
-				for (size_t i = start_index + 1; i < stack->len; ++i)
+				for (size_t i = start_index + 1; i < stack->len;
+				     ++i)
 					puts(stack->paths[i]);
 			}
 			for (size_t i = start_index; i < stack->len; ++i)
 				free(stack->paths[i]);
 			stack->len = start_index;
-			if (whitelist_parent != ent->fts_level && nmarked == nchildren) {
+			if (whitelist_parent != ent->fts_level &&
+			    nmarked == nchildren) {
 				// all were bad, mark this one as bad in the
 				// previous frame, so only after freeing
 				dirlist_add(stack, strdup(ent->fts_path));
@@ -119,15 +124,19 @@ int main(int argc, char *argv[])
 			dirlist_add(stack, NULL);
 		}
 
-		if (whitelist_prune_level > ent->fts_level || whitelist_prune_level == -1) {
+		if (whitelist_prune_level > ent->fts_level ||
+		    whitelist_prune_level == -1) {
 			int windex = dirlist_search(whitelist, ent->fts_path);
-			if (windex != -1 && str_starts_with(ent->fts_path, whitelist->paths[windex])) {
+			if (windex != -1 &&
+			    str_starts_with(ent->fts_path,
+					    whitelist->paths[windex])) {
 				fts_set(fts, ent, FTS_SKIP);
 				continue;
 			} else {
 				int could_get_match = 0;
 				for (size_t i = 0; i < whitelist->len; ++i) {
-					if (str_starts_with(whitelist->paths[i], ent->fts_path)) {
+					if (str_starts_with(whitelist->paths[i],
+							    ent->fts_path)) {
 						could_get_match = 1;
 						break;
 					}
@@ -141,7 +150,8 @@ int main(int argc, char *argv[])
 		}
 
 		int bindex = dirlist_search(blacklist, ent->fts_path);
-		if (bindex != -1 && str_starts_with(ent->fts_path, blacklist->paths[bindex])) {
+		if (bindex != -1 &&
+		    str_starts_with(ent->fts_path, blacklist->paths[bindex])) {
 			puts(ent->fts_path);
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
