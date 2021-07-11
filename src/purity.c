@@ -45,22 +45,17 @@ int main(int argc, char *argv[])
 	FTS *fts = NULL;
 	stack *stack = NULL;
 
-	whitelist = dirlist_file(whitelist_path);
-	if (!whitelist)
+	if (!whitelist = dirlist_file(whitelist_path))
 		goto fail;
-	blacklist = dirlist_file(blacklist_path);
-	if (!blacklist)
+	if (!blacklist = dirlist_file(blacklist_path))
 		goto fail;
-	home = expand_path("~");
-	if (!home)
+	if (!home = expand_path("~"))
 		goto fail;
-	fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL);
-	if (!fts)
+	if (!fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL))
 		goto fail;
-	stack = calloc(1, sizeof(*stack));
-	if (!stack)
+	if (!stack = calloc(1, sizeof(*stack)))
 		goto fail;
-	/* short whitelist_prune_level = -1; */
+
 	short whitelist_parent = -1;
 	for (;;) {
 		FTSENT *ent = fts_read(fts);
