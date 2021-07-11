@@ -17,7 +17,6 @@ void change_dir(const char *path);
 dirlist *dirlist_read_file(const char *filename);
 
 dirlist *dirlist_file(const char *path);
-int str_starts_with(const char *haystack, const char *needle);
 
 int main(int argc, char *argv[])
 {
@@ -114,13 +113,13 @@ int main(int argc, char *argv[])
 		}
 
 		int windex = dirlist_search(whitelist, ent->fts_path);
-		if (windex != -1 && str_starts_with(ent->fts_path, whitelist->paths[windex])) {
+		if (windex != -1 && !strcmp(ent->fts_path, whitelist->paths[windex])) {
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
 		}
 
 		int bindex = dirlist_search(blacklist, ent->fts_path);
-		if (bindex != -1 && str_starts_with(ent->fts_path, blacklist->paths[bindex])) {
+		if (bindex != -1 && !strcmp(ent->fts_path, blacklist->paths[bindex])) {
 			puts(ent->fts_path);
 			fts_set(fts, ent, FTS_SKIP);
 			continue;
@@ -247,13 +246,4 @@ dirlist *dirlist_file(const char *path)
 	if (list)
 		qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
 	return list;
-}
-
-int str_starts_with(const char *haystack, const char *needle)
-{
-	while (*haystack && *haystack == *needle) {
-		haystack++;
-		needle++;
-	}
-	return !*needle;
 }
