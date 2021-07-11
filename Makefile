@@ -1,7 +1,7 @@
 NAME=purity
 COMMON_FLAGS=-Wall -Wextra -Wpedantic
 LDFLAGS=-lbsd -pthread
-RFLAGS=-O2 -flto $(COMMON_FLAGS)
+RFLAGS=-O2 -g -flto $(COMMON_FLAGS)
 DFLAGS=-g -fanalyzer $(COMMON_FLAGS)
 
 SRC = $(wildcard src/*.c)
