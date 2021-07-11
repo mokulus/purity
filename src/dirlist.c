@@ -1,5 +1,5 @@
 #include "dirlist.h"
-#include "path_util.h"
+#include "util.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

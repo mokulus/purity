@@ -1,5 +1,5 @@
 #include "dirlist.h"
-#include "path_util.h"
+#include "util.h"
 #include "stack.h"
 #include <ctype.h>
 #include <dirent.h>
