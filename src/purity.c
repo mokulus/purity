@@ -235,16 +235,12 @@ dirlist *dirlist_read_file(const char *filename)
 	FILE *file = NULL;
 
 	dl = calloc(1, sizeof(*dl));
-	if (!dl) {
-		perror("calloc");
+	if (!dl)
 		goto fail;
-	}
 	size_t size = 0;
 	file = fopen(filename, "r");
-	if (!file) {
-		perror("fopen");
+	if (!file)
 		goto fail;
-	}
 	while (getline(&line, &size, file) != -1) {
 		char *ptr = line;
 		// skip whitespace
@@ -282,8 +278,6 @@ dirlist *dirlist_file(const char *path)
 		list = dirlist_read_file(path);
 	} else {
 		list = calloc(1, sizeof(*list));
-		if (!list)
-			perror("calloc");
 	}
 	if (list)
 		qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
