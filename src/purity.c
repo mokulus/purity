@@ -114,6 +114,7 @@ int main(int argc, char *argv[])
 			continue;
 		}
 
+		/* git repos */
 		if (!strcmp(ent->fts_name, ".git")) {
 			skip_parent_level = ent->fts_level - 1;
 			fts_set(fts, ent, FTS_SKIP);
