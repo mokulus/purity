@@ -19,7 +19,7 @@ dirlist *dirlist_file(const char *path)
 	} else {
 		list = calloc(1, sizeof(*list));
 	}
-	if (list)
+	if (list && list->paths)
 		qsort(list->paths, list->len, sizeof(*list->paths), strcmpp);
 	return list;
 }
