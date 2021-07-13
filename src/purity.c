@@ -53,7 +53,7 @@ int main(int argc, char *argv[])
 		goto fail_home;
 	if (!(fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL)))
 		goto fail_fts;
-	if (!(stack = calloc(1, sizeof(*stack))))
+	if (!(stack = stack_new()))
 		goto fail_stack;
 
 	short skip_parent_level = -1;
@@ -100,8 +100,9 @@ int main(int argc, char *argv[])
 			if (!is_whitelisted && is_fully_marked) {
 				// all were bad, mark this one as bad in the
 				// previous frame, so only after freeing
-				stack_add(stack, ent->fts_path,
-					  ent->fts_pathlen);
+				if (!stack_add(stack, ent->fts_path,
+					       ent->fts_pathlen))
+					goto fail;
 			}
 			if (is_whitelisted)
 				skip_parent_level = -1;
@@ -123,7 +124,8 @@ int main(int argc, char *argv[])
 
 		if (ent->fts_info == FTS_D) {
 			// mark new frame for new directory
-			stack_add(stack, NULL, 0);
+			if (!stack_add(stack, NULL, 0))
+				goto fail;
 		}
 
 		if (dirlist_match(whitelist, ent)) {
@@ -162,8 +164,11 @@ int main(int argc, char *argv[])
 
 		/* dirs are added in postorder */
 		if (ent->fts_info == FTS_F || ent->fts_info == FTS_SL ||
-		    ent->fts_info == FTS_SLNONE || ent->fts_info == FTS_DEFAULT)
-			stack_add(stack, ent->fts_path, ent->fts_pathlen);
+		    ent->fts_info == FTS_SLNONE ||
+		    ent->fts_info == FTS_DEFAULT) {
+			if (!stack_add(stack, ent->fts_path, ent->fts_pathlen))
+				goto fail;
+		}
 
 		ent->fts_number = 1;
 	}
