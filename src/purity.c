@@ -39,22 +39,22 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-	dirlist *whitelist = NULL;
-	dirlist *blacklist = NULL;
-	char *home = NULL;
-	FTS *fts = NULL;
-	stack *stack = NULL;
+	dirlist *whitelist;
+	dirlist *blacklist;
+	char *home;
+	FTS *fts;
+	stack *stack;
 
 	if (!(whitelist = dirlist_file(whitelist_path)))
-		goto fail;
+		goto fail_whitelist;
 	if (!(blacklist = dirlist_file(blacklist_path)))
-		goto fail;
+		goto fail_blacklist;
 	if (!(home = expand_path("~")))
-		goto fail;
+		goto fail_home;
 	if (!(fts = fts_open((char *const[]){home, NULL}, FTS_PHYSICAL, NULL)))
-		goto fail;
+		goto fail_fts;
 	if (!(stack = calloc(1, sizeof(*stack))))
-		goto fail;
+		goto fail_stack;
 
 	short skip_parent_level = -1;
 	for (;;) {
@@ -146,10 +146,16 @@ int main(int argc, char *argv[])
 
 fail:
 	stack_free(stack);
+fail_stack:
 	fts_close(fts);
+fail_fts:
 	free(home);
-	dirlist_free(whitelist);
+fail_home:
 	dirlist_free(blacklist);
+fail_blacklist:
+	dirlist_free(whitelist);
+fail_whitelist:
+	;
 }
 
 void usage(const char *arg0)
