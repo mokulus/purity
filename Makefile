@@ -1,5 +1,5 @@
 NAME=purity
-COMMON_FLAGS=-Wall -Wextra -Wpedantic
+COMMON_FLAGS=-Wall -Wextra -Wpedantic -Wconversion -Wcast-qual -Wwrite-strings -Werror
 LDFLAGS=
 RFLAGS=-O2 -g -flto $(COMMON_FLAGS)
 DFLAGS=-g -fanalyzer $(COMMON_FLAGS)

@@ -81,7 +81,7 @@ int main(int argc, char *argv[])
 		}
 
 		if (ent->fts_info == FTS_DP) {
-			size_t nchildren = ent->fts_number - 1;
+			size_t nchildren = (size_t)(ent->fts_number - 1);
 			size_t start_index = stack->indices_len - 1;
 			while (*stack_at(stack, start_index))
 				--start_index;

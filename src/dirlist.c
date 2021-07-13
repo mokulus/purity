@@ -35,7 +35,7 @@ void dirlist_free(dirlist *dl)
 static size_t dirlist_search(const dirlist *dl, const char *str)
 {
 	size_t base = 0;
-	size_t mid = -1;
+	size_t mid = -1UL;
 	for (size_t range = dl->len; range; range /= 2) {
 		mid = base + range / 2;
 		int cmp = strcmp(dl->paths[mid], str);
@@ -57,8 +57,8 @@ static void dirlist_add(dirlist *dl, char *str)
 
 static int strcmpp(const void *ap, const void *bp)
 {
-	const char *a = *(const char **)ap;
-	const char *b = *(const char **)bp;
+	const char *a = *(const char *const *)ap;
+	const char *b = *(const char *const *)bp;
 	return strcmp(a, b);
 }
 
@@ -113,8 +113,8 @@ unsigned dirlist_match(dirlist *dl, FTSENT *ent)
 	if (dl->prune_level >= ent->fts_level)
 		dl->prune_level = -1;
 	if (dl->prune_level == -1) {
-		int windex = dirlist_search(dl, ent->fts_path);
-		if (windex != -1 &&
+		size_t windex = dirlist_search(dl, ent->fts_path);
+		if (windex != -1UL &&
 		    str_starts_with(ent->fts_path, dl->paths[windex])) {
 			return 1;
 		} else {

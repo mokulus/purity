@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-stack *stack_new()
+stack *stack_new(void)
 {
 	stack *s = calloc(1, sizeof(*s));
 	if (!s)

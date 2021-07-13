@@ -11,7 +11,7 @@ typedef struct {
 	size_t indices_cap;
 } stack;
 
-stack *stack_new();
+stack *stack_new(void);
 unsigned stack_add(stack *s, const char *str, size_t len);
 char *stack_at(stack *s, size_t i);
 void stack_free(stack *s);
