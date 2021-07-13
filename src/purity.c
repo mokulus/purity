@@ -68,7 +68,19 @@ int main(int argc, char *argv[])
 			}
 		}
 
-		if (ent->fts_info == FTS_DP || ent->fts_info == FTS_DNR) {
+		/* FTS_DNR is FTS_DP equivalent if dir couldn't be opened */
+		if (ent->fts_info == FTS_DNR) {
+			fprintf(stderr, "%s: %s\n", ent->fts_path,
+				strerror(ent->fts_errno));
+			/* dir was still processed as FTS_D, just remove the
+			 * frame to force whitelist */
+			stack->data_len =
+			    stack->indices[stack->indices_len - 1];
+			stack->indices_len--;
+			continue;
+		}
+
+		if (ent->fts_info == FTS_DP) {
 			size_t nchildren = ent->fts_number - 1;
 			size_t start_index = stack->indices_len - 1;
 			while (*stack_at(stack, start_index))
@@ -97,6 +109,17 @@ int main(int argc, char *argv[])
 		}
 
 		ent->fts_parent->fts_number++;
+
+		if (ent->fts_info == FTS_ERR || ent->fts_info == FTS_NS ||
+		    ent->fts_info == FTS_DC) {
+			/* just skipping here implicitly marks the file as
+			 * whitelisted */
+			/* all non standard cases should be ignored and handled
+			 * manually */
+			fprintf(stderr, "%s: %s\n", ent->fts_path,
+				strerror(ent->fts_errno));
+			continue;
+		}
 
 		if (ent->fts_info == FTS_D) {
 			// mark new frame for new directory
@@ -138,7 +161,8 @@ int main(int argc, char *argv[])
 		}
 
 		/* dirs are added in postorder */
-		if (ent->fts_info != FTS_D)
+		if (ent->fts_info == FTS_F || ent->fts_info == FTS_SL ||
+		    ent->fts_info == FTS_SLNONE || ent->fts_info == FTS_DEFAULT)
 			stack_add(stack, ent->fts_path, ent->fts_pathlen);
 
 		ent->fts_number = 1;
@@ -154,8 +178,7 @@ fail_home:
 	dirlist_free(blacklist);
 fail_blacklist:
 	dirlist_free(whitelist);
-fail_whitelist:
-	;
+fail_whitelist:;
 }
 
 void usage(const char *arg0)
